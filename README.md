@@ -42,7 +42,21 @@ HomeServe Technologies is a full-stack, enterprise-grade Home Services Booking S
 
 ---
 
-## 2. Technology Stack
+## 2. Competition Evaluation Demo Accounts
+
+Evaluators can click the **1-Click Quick Login** buttons on the `/login` screen or use the credentials below:
+
+| Role | Email Address | Password | Key Testing Workflow |
+|:---|:---|:---|:---|
+| **Super Admin** | `superadmin@homeserve.com` | `superadmin123` | Master executive metrics, provider partner verification, CSV exports |
+| **System Admin** | `admin@homeserve.com` | `admin123` | User directory management, service catalog CRUD, complaint disputes |
+| **Service Provider** | `provider@homeserve.com` | `provider123` | Incoming orders queue, Accept/Decline, 10% fee & net payout breakdown |
+| **Field Technician** | `technician@homeserve.com` | `tech123` | Assigned job dispatches, Google Maps GPS link, work log photo uploads |
+| **Customer** | `customer@homeserve.com` | `customer123` | Browse 33 services, apply promo coupon (`WELCOME20`), pay & review |
+
+---
+
+## 3. Technology Stack
 
 | Layer | Technologies | Key Libraries & Specifications |
 |:---|:---|:---|
