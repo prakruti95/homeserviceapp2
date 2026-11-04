@@ -1,33 +1,55 @@
-# Python
+# -----------------------------------------------------------------------------
+# HomeServe Technologies - Production .gitignore
+# -----------------------------------------------------------------------------
+
+# Python & Virtual Environments
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 *.egg-info/
-dist/
-build/
-.env
 .venv/
 venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Node
+# Node.js & Frontend Build Outputs
 node_modules/
 dist/
-.env.local
+build/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# IDE
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+DEMO_CREDENTIALS.md
+*.pem
+*.key
+*.cert
+*.pfx
+
+# Local Database Files
+mysql_data/
+*.sqlite3
+*.db
+*.sql.gz
+*.sql.bak
+
+# IDE & Operating System Artifacts
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db
-
-# MySQL
-mysql_data/
-
-# Credentials (dev/demo only)
-DEMO_CREDENTIALS.md
-
+desktop.ini
