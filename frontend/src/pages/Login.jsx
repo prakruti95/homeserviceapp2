@@ -23,13 +23,14 @@ export default function Login() {
     setSubmitting(true);
     try {
       const user = await login(email, password);
+      const role = user.role?.toLowerCase();
       if (from) {
         navigate(from, { replace: true });
-      } else if (user.role === 'admin') {
+      } else if (role === 'admin' || role === 'super_admin') {
         navigate('/admin/dashboard');
-      } else if (user.role === 'provider') {
+      } else if (role === 'provider') {
         navigate('/provider/dashboard');
-      } else if (user.role === 'technician') {
+      } else if (role === 'technician') {
         navigate('/technician/dashboard');
       } else {
         navigate('/customer/dashboard');
@@ -47,9 +48,10 @@ export default function Login() {
     setSubmitting(true);
     try {
       const user = await login(demoEmail, demoPassword);
-      if (user.role === 'admin') navigate('/admin/dashboard');
-      else if (user.role === 'provider') navigate('/provider/dashboard');
-      else if (user.role === 'technician') navigate('/technician/dashboard');
+      const role = user.role?.toLowerCase();
+      if (role === 'admin' || role === 'super_admin') navigate('/admin/dashboard');
+      else if (role === 'provider') navigate('/provider/dashboard');
+      else if (role === 'technician') navigate('/technician/dashboard');
       else navigate('/customer/dashboard');
     } catch (err) {
       // error handled by api interceptor
@@ -128,7 +130,15 @@ export default function Login() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-center mb-3">
               1-Click Demo Evaluation Logins
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('superadmin@homeserve.com', 'superadmin123')}
+                className="flex flex-col items-center justify-center p-2 rounded-xl border border-purple-200 bg-purple-50/60 hover:bg-purple-100/70 text-purple-800 transition-colors text-xs font-medium cursor-pointer"
+              >
+                <Shield className="h-4 w-4 mb-1 text-purple-600" />
+                Super Admin
+              </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('admin@homeserve.com', 'admin123')}

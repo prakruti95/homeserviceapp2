@@ -13,6 +13,7 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
 @router.get("", response_model=NotificationListResponse)
+@router.get("/", response_model=NotificationListResponse, include_in_schema=False)
 def list_notifications(
     db: DB,
     current_user: CurrentUser,

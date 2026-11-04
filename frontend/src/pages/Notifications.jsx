@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { 
   Bell, CheckCircle, Trash2, Clock, CheckCheck, 
-  AlertCircle, Sparkles, RefreshCw 
+  AlertCircle, Sparkles, RefreshCw, ExternalLink 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function NotificationsPage() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -129,10 +131,24 @@ export default function NotificationsPage() {
                     )}
                   </div>
                   <p className="text-xs text-gray-600 mt-1 leading-relaxed">{n.message}</p>
-                  <span className="text-[10px] text-gray-400 mt-2 block font-medium">
-                    {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
-                    • {new Date(n.created_at).toLocaleDateString()}
-                  </span>
+                  
+                  <div className="flex flex-wrap items-center gap-3 mt-2">
+                    <span className="text-[10px] text-gray-400 font-medium">
+                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
+                      • {new Date(n.created_at).toLocaleDateString()}
+                    </span>
+                    {n.link && (
+                      <button
+                        onClick={async () => {
+                          if (!n.is_read) await handleMarkRead(n.id);
+                          navigate(n.link);
+                        }}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                      >
+                        Open Details <ExternalLink className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

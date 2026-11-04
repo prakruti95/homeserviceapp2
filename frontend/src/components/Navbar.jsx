@@ -26,9 +26,10 @@ export default function Navbar({ onToggleSidebar }) {
 
   const getDashboardLink = () => {
     if (!user) return '/';
-    if (user.role === 'admin') return '/admin/dashboard';
-    if (user.role === 'provider') return '/provider/dashboard';
-    if (user.role === 'technician') return '/technician/dashboard';
+    const role = user.role?.toLowerCase();
+    if (role === 'admin' || role === 'super_admin') return '/admin/dashboard';
+    if (role === 'provider') return '/provider/dashboard';
+    if (role === 'technician') return '/technician/dashboard';
     return '/customer/dashboard';
   };
 

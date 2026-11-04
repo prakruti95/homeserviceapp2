@@ -27,3 +27,7 @@ Thumbs.db
 
 # MySQL
 mysql_data/
+
+# Credentials (dev/demo only)
+DEMO_CREDENTIALS.md
+

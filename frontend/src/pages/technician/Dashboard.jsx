@@ -4,7 +4,8 @@ import api from '../../services/api';
 import { 
   Wrench, CheckSquare, Clock, MapPin, Phone, 
   Play, CheckCircle2, AlertCircle, RefreshCw, Navigation, 
-  Camera, Image as ImageIcon, Send 
+  Camera, Image as ImageIcon, Send, Truck, Check, History, 
+  FileText, MessageSquare 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -15,6 +16,7 @@ export default function TechnicianDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'history'
 
   // Photo Upload Modal State
   const [photoBooking, setPhotoBooking] = useState(null);
@@ -23,6 +25,11 @@ export default function TechnicianDashboard() {
   const [photoType, setPhotoType] = useState('completion');
   const [bookingImages, setBookingImages] = useState([]);
   const [submittingPhoto, setSubmittingPhoto] = useState(false);
+
+  // Completion Remarks Modal State
+  const [completeBooking, setCompleteBooking] = useState(null);
+  const [completionRemarks, setCompletionRemarks] = useState('');
+  const [completingJob, setCompletingJob] = useState(false);
 
   const fetchWorkOrders = async () => {
     setLoading(true);
@@ -44,14 +51,14 @@ export default function TechnicianDashboard() {
     fetchWorkOrders();
   }, []);
 
-  const handleUpdateStatus = async (bookingId, newStatus) => {
+  const handleUpdateStatus = async (bookingId, newStatus, remarks = null) => {
     setUpdatingId(bookingId);
     try {
-      // Find assignment if exists
       const matchAssign = assignments.find((a) => a.booking?.id === bookingId);
       if (matchAssign) {
         await api.patch(`/technicians/assignments/${matchAssign.assignment_id}/status`, {
           status: newStatus,
+          notes: remarks,
         });
       } else {
         await api.patch(`/bookings/${bookingId}/status`, { status: newStatus });
@@ -62,6 +69,28 @@ export default function TechnicianDashboard() {
       // toast shown
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleConfirmCompletion = async (e) => {
+    e.preventDefault();
+    if (!completeBooking) return;
+    setCompletingJob(true);
+    try {
+      await handleUpdateStatus(completeBooking.id, 'completed', completionRemarks.trim());
+      // Log remarks as an image or note
+      if (completionRemarks.trim()) {
+        await api.post(`/bookings/${completeBooking.id}/images`, {
+          image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80',
+          caption: `Sign-off note: ${completionRemarks.trim()}`,
+          image_type: 'completion',
+        }).catch(() => {});
+      }
+      toast.success('Work order completed and signed off successfully!');
+      setCompleteBooking(null);
+      setCompletionRemarks('');
+    } finally {
+      setCompletingJob(false);
     }
   };
 
@@ -102,7 +131,9 @@ export default function TechnicianDashboard() {
   const activeDispatches = bookings.filter((b) => 
     ['confirmed', 'provider_assigned', 'in_progress'].includes(b.status)
   );
-  const completedToday = bookings.filter((b) => b.status === 'completed');
+  const completedJobs = bookings.filter((b) => b.status === 'completed');
+
+  const displayedList = activeTab === 'active' ? activeDispatches : completedJobs;
 
   if (loading) {
     return (
@@ -121,8 +152,8 @@ export default function TechnicianDashboard() {
             Field Technician Console
           </span>
           <h1 className="text-3xl font-black mt-2">Active Field Dispatches</h1>
-          <p className="mt-1 text-slate-300 text-xs max-w-lg">
-            Welcome, <strong>{user?.full_name}</strong>. Update work order progress, verify customer addresses, upload work log photos, and complete on-site services.
+          <p className="mt-1 text-slate-300 text-xs sm:text-sm max-w-lg">
+            Welcome, <strong>{user?.full_name}</strong>. Record GPS job arrivals, progress work orders, upload before/after photos, and complete on-site services.
           </p>
         </div>
         <button
@@ -162,26 +193,49 @@ export default function TechnicianDashboard() {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-emerald-600">{completedToday.length}</div>
-            <div className="text-xs text-gray-500 font-medium">Finished Work Orders</div>
+            <div className="text-2xl font-bold text-emerald-600">{completedJobs.length}</div>
+            <div className="text-xs text-gray-500 font-medium">Completed Jobs History</div>
           </div>
         </div>
       </div>
 
-      {/* Work Orders Queue */}
+      {/* Work Orders Queue & History Tabs */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-base font-bold text-gray-900">Assigned Dispatch Queue</h2>
-          <span className="text-xs font-semibold text-gray-500">{bookings.length} Total Registered Jobs</span>
+        <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Field Dispatch Queue</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Assigned customer work orders, arrival reporting, and photo sign-offs</p>
+          </div>
+
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-gray-200 self-start">
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'active' ? 'bg-white text-blue-600 shadow-2xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Active Queue ({activeDispatches.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'history' ? 'bg-white text-blue-600 shadow-2xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Job History ({completedJobs.length})
+            </button>
+          </div>
         </div>
 
-        {bookings.length === 0 ? (
+        {displayedList.length === 0 ? (
           <div className="p-12 text-center text-xs text-gray-500">
-            No work orders assigned currently. New assignments from the dispatch network will show here.
+            {activeTab === 'active' 
+              ? 'No active work orders dispatched currently.' 
+              : 'No completed job history recorded yet.'}
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {bookings.map((b) => (
+            {displayedList.map((b) => (
               <div key={b.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-gray-50/50 transition-colors">
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
@@ -244,11 +298,22 @@ export default function TechnicianDashboard() {
                     <Camera className="h-3.5 w-3.5" /> Photo Log
                   </button>
 
-                  {['confirmed', 'provider_assigned'].includes(b.status) && (
+                  {/* Mark En Route / Arrived On Site */}
+                  {b.status === 'provider_assigned' && (
                     <button
                       disabled={updatingId === b.id}
                       onClick={() => handleUpdateStatus(b.id, 'in_progress')}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <Truck className="h-3.5 w-3.5" /> Mark Arrived on Site
+                    </button>
+                  )}
+
+                  {b.status === 'confirmed' && (
+                    <button
+                      disabled={updatingId === b.id}
+                      onClick={() => handleUpdateStatus(b.id, 'in_progress')}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <Play className="h-3.5 w-3.5 fill-white" /> Start Service
                     </button>
@@ -256,9 +321,8 @@ export default function TechnicianDashboard() {
 
                   {b.status === 'in_progress' && (
                     <button
-                      disabled={updatingId === b.id}
-                      onClick={() => handleUpdateStatus(b.id, 'completed')}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => setCompleteBooking(b)}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <CheckCircle2 className="h-4 w-4" /> Sign Off & Complete
                     </button>
@@ -275,6 +339,53 @@ export default function TechnicianDashboard() {
           </div>
         )}
       </div>
+
+      {/* Completion Remarks Modal */}
+      {completeBooking && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" /> Sign Off Work Order #{completeBooking.id}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              {completeBooking.service_name} for {completeBooking.customer_name}
+            </p>
+
+            <form onSubmit={handleConfirmCompletion} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Completion Remarks / Work Summary *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={completionRemarks}
+                  onChange={(e) => setCompletionRemarks(e.target.value)}
+                  placeholder="E.g., Successfully cleared blockage, replaced rubber gasket, inspected water pressure."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setCompleteBooking(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={completingJob}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {completingJob ? 'Signing off...' : 'Confirm Completion'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Photo Log Modal */}
       {photoBooking && (
