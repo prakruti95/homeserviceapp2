@@ -13,9 +13,12 @@ from app.models import payment as payment_model
 from app.models import review as review_model
 from app.models import notification as notification_model
 
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, Customer, Address
 from app.models.service import ServiceCategory, Service
-from app.models.provider import ProviderProfile, ProviderAvailability
+from app.models.provider import (
+    ProviderProfile, ServiceProvider, Technician, ServiceArea, AvailabilitySlot, ProviderAvailability
+)
+from app.models.payment import Coupon
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +36,24 @@ def init_db() -> None:
 
 
 def _seed_all_data(db: Session) -> None:
+    # 0. Seed Super Admin
+    super_admin = db.query(User).filter(User.email == "superadmin@homeserve.com").first()
+    if not super_admin:
+        super_admin = User(
+            email="superadmin@homeserve.com",
+            hashed_password=hash_password("superadmin123"),
+            full_name="Chief Executive (Super Admin)",
+            role=UserRole.SUPER_ADMIN,
+            phone="+1-800-555-0001",
+            city="San Francisco",
+            state="CA",
+            is_active=True,
+        )
+        db.add(super_admin)
+        db.commit()
+        db.refresh(super_admin)
+        logger.info("Super Admin seeded: superadmin@homeserve.com")
+
     # 1. Seed Admin
     admin = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
     if not admin:
@@ -260,3 +281,122 @@ def _seed_all_data(db: Session) -> None:
                 db.add(serv)
             db.commit()
             logger.info(f"Seeded category: {cat.name} with services")
+
+    # 5. Seed Canonical ServiceProvider
+    if provider_user:
+        sp = db.query(ServiceProvider).filter(ServiceProvider.user_id == provider_user.id).first()
+        if not sp:
+            sp = ServiceProvider(
+                user_id=provider_user.id,
+                business_name="ProFix Home Solutions",
+                bio="Licensed master contractor with over 8 years experience in plumbing, electrical, HVAC, and household repairs.",
+                license_number="CA-LIC-984721",
+                experience_years=8,
+                hourly_rate=65.0,
+                service_area="Greater Bay Area",
+                is_verified=True,
+                commission_rate=0.10,
+                average_rating=4.9,
+                total_reviews=42,
+                total_bookings=56,
+            )
+            db.add(sp)
+            db.commit()
+            db.refresh(sp)
+            logger.info("Canonical ServiceProvider seeded for Alex Masterson")
+
+        # Seed ServiceArea
+        area = db.query(ServiceArea).filter(ServiceArea.provider_id == sp.id).first()
+        if not area:
+            area = ServiceArea(
+                provider_id=sp.id,
+                city="San Francisco",
+                state="CA",
+                zip_code="94103",
+                radius_km=30.0,
+                is_active=True,
+            )
+            db.add(area)
+            db.commit()
+
+        # Seed Canonical AvailabilitySlot
+        for day in range(5):
+            slot = db.query(AvailabilitySlot).filter(AvailabilitySlot.provider_id == sp.id, AvailabilitySlot.day_of_week == day).first()
+            if not slot:
+                slot = AvailabilitySlot(
+                    provider_id=sp.id,
+                    day_of_week=day,
+                    start_time=time(9, 0),
+                    end_time=time(17, 0),
+                    is_available=True,
+                )
+                db.add(slot)
+        db.commit()
+
+    # 6. Seed Customer Profile & Address
+    if customer:
+        cust_profile = db.query(Customer).filter(Customer.user_id == customer.id).first()
+        if not cust_profile:
+            cust_profile = Customer(
+                user_id=customer.id,
+                loyalty_points=120,
+                preferred_payment_method="credit_card",
+                emergency_contact="+1-800-555-9999",
+                notes="Gate code #4421, dog in backyard",
+            )
+            db.add(cust_profile)
+            db.commit()
+
+        addr = db.query(Address).filter(Address.user_id == customer.id).first()
+        if not addr:
+            addr = Address(
+                user_id=customer.id,
+                label="Home",
+                street_address="789 Pine Street",
+                unit_number="Apt 4B",
+                city="San Francisco",
+                state="CA",
+                zip_code="94107",
+                is_default=True,
+            )
+            db.add(addr)
+            db.commit()
+
+    # 7. Seed Technician Profile
+    if tech:
+        tech_profile = db.query(Technician).filter(Technician.user_id == tech.id).first()
+        if not tech_profile:
+            tech_profile = Technician(
+                user_id=tech.id,
+                provider_id=provider_user.id if provider_user else None,
+                badge_number="TECH-SF-0042",
+                skills="HVAC Diagnostic, Electrical Wiring, Pipe Soldering, Tile Grout",
+                vehicle_type="Ford Transit Van (Tool Equipped)",
+                is_available=True,
+                rating=4.95,
+            )
+            db.add(tech_profile)
+            db.commit()
+
+    # 8. Seed Discount Coupons
+    coupons_data = [
+        {"code": "WELCOME20", "description": "20% off for all new homeowners", "discount_type": "percentage", "discount_value": 20.0, "min_order_amount": 50.0, "max_discount": 50.0},
+        {"code": "SAVE10", "description": "$10 instant reduction on any home service", "discount_type": "fixed", "discount_value": 10.0, "min_order_amount": 30.0, "max_discount": 10.0},
+        {"code": "HOMESERVE50", "description": "$50 major voucher for repairs above $200", "discount_type": "fixed", "discount_value": 50.0, "min_order_amount": 200.0, "max_discount": 50.0},
+    ]
+    for c_data in coupons_data:
+        coup = db.query(Coupon).filter(Coupon.code == c_data["code"]).first()
+        if not coup:
+            coup = Coupon(
+                code=c_data["code"],
+                description=c_data["description"],
+                discount_type=c_data["discount_type"],
+                discount_value=c_data["discount_value"],
+                min_order_amount=c_data["min_order_amount"],
+                max_discount=c_data["max_discount"],
+                usage_limit=500,
+                is_active=True,
+            )
+            db.add(coup)
+    db.commit()
+    logger.info("Discount coupons seeded successfully.")

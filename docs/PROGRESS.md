@@ -99,6 +99,51 @@
   - `npm run build`: PASSED (0 errors, 474ms).
   - Backend integration test (`python tests/test_e2e.py`): 100% PASSED across all 7 stages (auth -> catalog -> booking -> payment -> provider state transitions -> review -> admin analytics).
 
+### Phase 6: Backend Architecture & All 20 Entities (Completed & Verified)
+- ✅ **1. All 20 Normalized Entities in MySQL Schema**:
+  1. `users` (super_admin, admin, provider, customer, technician)
+  2. `customers` (loyalty_points, payment preferences, emergency contacts)
+  3. `service_providers` (commission_rate, license_number, bio, ratings, total bookings)
+  4. `technicians` (badge_number, skills, vehicle_type, rating, availability)
+  5. `addresses` (user_id FK, label, street_address, unit, city, state, zip_code, default flag)
+  6. `service_categories` (all 8 verticals with visual imagery)
+  7. `services` (fixed pricing, duration, category link, image_url)
+  8. `provider_services` (many-to-many provider to service association)
+  9. `service_areas` (provider_id FK, city, state, zip_code, radius_km, is_active)
+  10. `availability_slots` (provider_id FK, day_of_week 0-6, start_time, end_time, is_available)
+  11. `bookings` (unique `booking_reference`, subtotal, discount, tax, total_price, coupon_id, address, status)
+  12. `booking_assignments` (booking_id FK, technician_id FK, assigned_by_id FK, status, notes)
+  13. `booking_images` (booking_id FK, image_url, caption, image_type: 'before'/'after'/'work_log'/'inspection')
+  14. `payments` (booking_id FK, user_id FK, amount, platform_fee, provider_amount, is_demo, transaction_id)
+  15. `invoices` (invoice_number, booking_id, customer_id, subtotal, discount, tax, total, status, issued_date)
+  16. `coupons` (code, discount_type, discount_value, min_order_amount, max_discount, usage_limit, is_active)
+  17. `reviews` (booking_id FK, customer_id FK, provider_id FK, rating 1-5, comment)
+  18. `complaints` (ticket_number, booking_id FK, customer_id FK, subject, description, priority, status, resolution)
+  19. `notifications` (user_id FK, title, message, is_read, link)
+  20. `provider_earnings` (provider_id FK, booking_id FK, gross_amount, platform_fee, net_earnings, status, payout_date)
+- ✅ **2. Authentication & Roles**:
+  - Roles: `SUPER_ADMIN`, `ADMIN`, `PROVIDER`, `CUSTOMER`, `TECHNICIAN`.
+  - Super Admin seeded: `superadmin@homeserve.com` / `superadmin123`.
+  - Token Revocation / Logout: `POST /api/auth/logout` with blacklist validation rejecting revoked tokens with HTTP 401.
+- ✅ **3. Advanced Booking Engine**:
+  - Unique booking references generated format: `HS-BK-YYYYMMDD-XXXXXX`.
+  - Overlap Prevention: Automatically evaluates requested provider's existing active appointments in the time window and returns HTTP 409 Conflict if an overlap is detected.
+  - State Machine Transitions: Validated through `BOOKING_STATUS_TRANSITIONS` (`pending` -> `confirmed` / `provider_assigned` -> `in_progress` -> `completed`, plus `cancelled` and `rejected`).
+  - Rescheduling: `PATCH /api/bookings/{id}/reschedule` with conflict detection.
+  - Cancellation: `PATCH /api/bookings/{id}/cancel` with reason tracking.
+  - Technician Assignment: `POST /api/bookings/{id}/assign` assigns technician and updates booking status to `provider_assigned`.
+  - Job Photo Logging: `POST /api/bookings/{id}/images` and `GET /api/bookings/{id}/images`.
+- ✅ **4. Payment & Invoicing Engine**:
+  - Platform Commission: 10% calculated automatically on checkout; 90% allocated to provider net earnings in `provider_earnings`.
+  - Coupon Discounts: Tested with `WELCOME20` (20% off), `SAVE10` ($10 off), `HOMESERVE50` ($50 off); deducted from booking subtotal.
+  - Demo Payment Processing: `POST /api/payments/process-demo` provides simulated sandbox checkout.
+  - Invoice Generation: Automatically generated with unique invoice numbers (`INV-YYYYMM-XXXXXX`) in `invoices` table.
+  - Payment Tamper Protection: Untrusted clients cannot directly patch payment status.
+- ✅ **5. Verification Test Suites**:
+  - `python tests/test_backend_full.py`: 100% PASSED across all 7 steps (Auth & Revocation, Customer Addresses, Coupon Validation, Overlap Protection, Demo Payments & Invoicing, Technician Assignment & Photos, Customer Complaints).
+  - `python tests/test_e2e.py`: 100% PASSED across all 7 workflow steps.
+  - `npm run build`: 100% PASSED in 495ms with 0 compilation errors.
+
 ### Pending / Future Enhancements (Post-Competition Roadmap)
 - ⬜ Real-time WebSocket push notifications for active GPS technician tracking
 - ⬜ Multi-currency international Stripe/PayPal payment gateway webhooks

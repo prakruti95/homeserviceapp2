@@ -1,6 +1,7 @@
 import urllib.request
 import json
 import sys
+from datetime import date, timedelta
 
 def post(url, data, token=None):
     headers = {'Content-Type': 'application/json'}
@@ -51,11 +52,17 @@ def run_tests():
     print(f"-> Found Service: {srv['name']} | Category: {srv.get('category', {}).get('name')} | Price: ${srv['base_price']}")
 
     print("\n[Step 3] Customer Creating Service Booking...")
+    import time
+    slot_day = 10 + (int(time.time()) % 30)
+    slot_hour = 8 + (int(time.time()) % 10)
+    b_date = str(date.today() + timedelta(days=slot_day))
+    b_time = f"{slot_hour:02d}:00:00"
+
     booking = post('/api/bookings', {
         'service_id': srv['id'],
         'provider_id': 2,
-        'scheduled_date': '2026-11-05',
-        'scheduled_time': '10:00:00',
+        'scheduled_date': b_date,
+        'scheduled_time': b_time,
         'duration_minutes': srv['duration_minutes'],
         'total_price': srv['base_price'],
         'address': '789 Pine Street, Apt 4B',

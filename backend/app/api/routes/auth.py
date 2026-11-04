@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import DB, CurrentUser
+from app.api.deps import DB, CurrentUser, CurrentToken, revoke_token
 from app.core.security import hash_password, verify_password, create_access_token
 from app.models.user import User
 from app.schemas.user import (
@@ -103,3 +103,10 @@ def update_me(
     db.commit()
     db.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(token: CurrentToken, current_user: CurrentUser) -> dict[str, str]:
+    """Revoke the current JWT access token."""
+    revoke_token(token)
+    return {"message": "Successfully logged out and session revoked"}

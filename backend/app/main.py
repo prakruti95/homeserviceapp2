@@ -12,6 +12,11 @@ from app.api.routes import (
     providers,
     bookings,
     payments,
+    invoices,
+    coupons,
+    complaints,
+    technicians,
+    customers,
     reviews,
     notifications,
     admin,
@@ -60,6 +65,11 @@ app.include_router(services.router, prefix=api_prefix)
 app.include_router(providers.router, prefix=api_prefix)
 app.include_router(bookings.router, prefix=api_prefix)
 app.include_router(payments.router, prefix=api_prefix)
+app.include_router(invoices.router, prefix=api_prefix)
+app.include_router(coupons.router, prefix=api_prefix)
+app.include_router(complaints.router, prefix=api_prefix)
+app.include_router(technicians.router, prefix=api_prefix)
+app.include_router(customers.router, prefix=api_prefix)
 app.include_router(reviews.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
