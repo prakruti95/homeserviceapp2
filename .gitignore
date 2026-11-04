@@ -20,6 +20,8 @@ htmlcov/
 node_modules/
 dist/
 build/
+deployment_build/
+*.zip
 .npm/
 npm-debug.log*
 yarn-debug.log*

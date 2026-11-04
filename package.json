@@ -1,0 +1,21 @@
+{
+  "name": "homeserve-platform",
+  "version": "1.0.0",
+  "description": "HomeServe Technologies - Home Services Booking SaaS Platform",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm run build",
+    "build:deploy": "python scripts/build_deployment.py",
+    "test:backend": "cd backend && python -m pytest tests/",
+    "test:workflow": "cd backend && python tests/test_full_workflow.py"
+  },
+  "keywords": [
+    "homeserve",
+    "saas",
+    "fastapi",
+    "react",
+    "production-deployment"
+  ],
+  "author": "HomeServe Technologies Team",
+  "license": "MIT"
+}
