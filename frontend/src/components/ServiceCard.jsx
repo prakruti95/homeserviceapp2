@@ -47,16 +47,16 @@ export default function ServiceCard({ service }) {
               {service.duration}
             </span>
           )}
-          {service.rating > 0 && (
+          {Number(service.rating || 0) > 0 && (
             <span className="flex items-center gap-1">
               <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-              {service.rating.toFixed(1)}
+              {Number(service.rating || 0).toFixed(1)}
             </span>
           )}
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xl font-bold text-blue-600">
-            ${service.price?.toFixed(2) || '0.00'}
+            ${Number(service.price ?? service.base_price ?? 0).toFixed(2)}
           </span>
           <button
             onClick={() => navigate(`/customer/book/${service.id}`)}

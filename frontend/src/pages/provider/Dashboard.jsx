@@ -206,7 +206,7 @@ export default function ProviderDashboard() {
 
                   <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
                     <div className="text-right">
-                      <div className="text-base font-black text-gray-900">${b.total_price?.toFixed(2)}</div>
+                      <div className="text-base font-black text-gray-900">${Number(b.total_price || 0).toFixed(2)}</div>
                       <span className="text-[10px] text-gray-400">Billable</span>
                     </div>
 

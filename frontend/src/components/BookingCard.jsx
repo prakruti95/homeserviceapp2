@@ -34,7 +34,7 @@ export default function BookingCard({ booking, actions, showProvider = false, sh
           </span>
         </div>
         <span className="text-lg font-bold text-blue-600">
-          ${booking.total_price?.toFixed(2) || '0.00'}
+          ${Number(booking.total_price || 0).toFixed(2)}
         </span>
       </div>
 

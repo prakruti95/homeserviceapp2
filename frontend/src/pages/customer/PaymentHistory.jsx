@@ -138,7 +138,7 @@ export default function PaymentHistory() {
                       {new Date(p.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-6 text-right font-black text-gray-900 text-sm">
-                      ${p.amount?.toFixed(2)}
+                      ${Number(p.amount || 0).toFixed(2)}
                     </td>
                     <td className="py-3 px-6">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${

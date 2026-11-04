@@ -229,12 +229,12 @@ export default function BookService() {
           {appliedCoupon && (
             <div className="flex justify-between text-emerald-600">
               <span>Coupon Discount ({appliedCoupon.code}):</span>
-              <span className="font-semibold">-${appliedCoupon.discount_amount?.toFixed(2)}</span>
+              <span className="font-semibold">-${Number(appliedCoupon.discount_amount || 0).toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between pt-2 border-t border-gray-200">
             <span className="text-gray-500 font-bold">Total Charged:</span>
-            <span className="font-black text-gray-900 text-sm">${successBooking.total_price?.toFixed(2)}</span>
+            <span className="font-black text-gray-900 text-sm">${Number(successBooking.total_price || 0).toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Payment Status:</span>
@@ -290,7 +290,7 @@ export default function BookService() {
             >
               {services.map((srv) => (
                 <option key={srv.id} value={srv.id}>
-                  {srv.category?.name ? `[${srv.category.name}] ` : ''}{srv.name} — ${srv.base_price.toFixed(2)} ({srv.duration_minutes}m)
+                  {srv.category?.name ? `[${srv.category.name}] ` : ''}{srv.name} — ${Number(srv.base_price || 0).toFixed(2)} ({srv.duration_minutes}m)
                 </option>
               ))}
             </select>
@@ -448,7 +448,7 @@ export default function BookService() {
               {appliedCoupon ? (
                 <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-                    <Tag className="h-3.5 w-3.5" /> {appliedCoupon.code} (-${appliedCoupon.discount_amount?.toFixed(2)})
+                    <Tag className="h-3.5 w-3.5" /> {appliedCoupon.code} (-${Number(appliedCoupon.discount_amount || 0).toFixed(2)})
                   </div>
                   <button
                     type="button"

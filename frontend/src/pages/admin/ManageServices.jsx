@@ -171,7 +171,7 @@ export default function ManageServices() {
                       </td>
                       <td className="py-3 px-6 text-gray-600">{s.duration_minutes} mins</td>
                       <td className="py-3 px-6 text-right font-black text-gray-900">
-                        ${s.base_price.toFixed(2)}
+                        ${Number(s.base_price || 0).toFixed(2)}
                       </td>
                       <td className="py-3 px-6 text-right">
                         <button

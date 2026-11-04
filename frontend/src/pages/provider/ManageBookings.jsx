@@ -174,7 +174,7 @@ export default function ManageBookings() {
               {/* Status Action Workflow Buttons */}
               <div className="flex flex-col sm:flex-row md:flex-col items-end gap-3 shrink-0">
                 <div className="text-right">
-                  <div className="text-lg font-black text-gray-900">${b.total_price?.toFixed(2)}</div>
+                  <div className="text-lg font-black text-gray-900">${Number(b.total_price || 0).toFixed(2)}</div>
                   <span className="text-[10px] text-gray-400">Total Billable</span>
                 </div>
 

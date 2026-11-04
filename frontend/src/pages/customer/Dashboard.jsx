@@ -181,7 +181,7 @@ export default function CustomerDashboard() {
 
                     <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
                       <div className="text-right">
-                        <div className="font-bold text-gray-900 text-sm">${b.total_price?.toFixed(2)}</div>
+                        <div className="font-bold text-gray-900 text-sm">${Number(b.total_price || 0).toFixed(2)}</div>
                         <div className="flex items-center gap-1 justify-end mt-0.5">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                             b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :

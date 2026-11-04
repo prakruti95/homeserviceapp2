@@ -54,7 +54,7 @@ class Settings(BaseSettings):
             if self.SECRET_KEY == "homeserve-super-secret-key-change-in-production-2024":
                 raise ValueError("CRITICAL SECURITY ERROR: Default SECRET_KEY must be overridden in production!")
             if "localhost" in self.DATABASE_URL or "127.0.0.1" in self.DATABASE_URL:
-                raise ValueError("DATABASE_URL must point to a cloud MySQL host in production!")
+                raise ValueError("DATABASE_URL must point to a cloud database host (MySQL or PostgreSQL) in production!")
 
     model_config = {
         "env_file": ".env",

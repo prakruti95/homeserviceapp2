@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import Footer from '../components/Footer';
+import { fallbackCategories, fallbackServices } from '../data/catalog';
 
 const categoryIcons = {
   Plumbing: Wrench,
@@ -17,114 +18,6 @@ const categoryIcons = {
   'Appliance Repair': Cpu,
   'Pest Control': ShieldAlert,
 };
-
-const fallbackCategories = [
-  {
-    id: 1,
-    name: 'Plumbing',
-    description: 'Pipe repairs, drain cleaning, faucet replacements, and leak diagnostics.',
-    image_url: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 2,
-    name: 'Electrical',
-    description: 'Circuit breaker diagnosis, smart switch wiring, chandelier installs, and panel upgrades.',
-    image_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 3,
-    name: 'AC Repair',
-    description: 'HVAC tune-ups, coil chemical deep cleans, refrigerant top-ups, and thermostat setup.',
-    image_url: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 4,
-    name: 'Home Cleaning',
-    description: 'Whole-house deep cleans, kitchen degreasing, bathroom sanitization, and carpet wash.',
-    image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 5,
-    name: 'Painting',
-    description: 'Interior accent walls, ceiling coats, waterproof exterior paint, and drywall repair.',
-    image_url: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 6,
-    name: 'Carpentry',
-    description: 'Custom cabinetry, hardwood furniture repair, hinge alignments, and door hanging.',
-    image_url: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 7,
-    name: 'Appliance Repair',
-    description: 'Refrigerators, dishwashers, washing machines, dryers, ovens, and microwaves.',
-    image_url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 8,
-    name: 'Pest Control',
-    description: 'Eco-safe termite treatments, bed bug eradication, rodent exclusion, and inspections.',
-    image_url: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80',
-  },
-];
-
-const fallbackServices = [
-  {
-    id: 1,
-    name: 'Emergency Pipe Leak & Burst Repair',
-    description: 'Rapid on-site leak isolation, copper and PEX pipe replacement, and water pressure restoration.',
-    base_price: 89.0,
-    duration_minutes: 60,
-    category: { name: 'Plumbing' },
-    image_url: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 2,
-    name: 'AC Deep Foam Cleaning & Filter Wash',
-    description: 'High-pressure coil chemical wash, indoor blower sanitation, and airflow efficiency check.',
-    base_price: 79.0,
-    duration_minutes: 75,
-    category: { name: 'AC Repair' },
-    image_url: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 3,
-    name: 'Full Home Electrical Safety Audit',
-    description: 'Inspection of main breaker panel, ground fault protection, load testing, and fixture wiring.',
-    base_price: 99.0,
-    duration_minutes: 90,
-    category: { name: 'Electrical' },
-    image_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 4,
-    name: 'Whole-House Deep Sanitization Clean',
-    description: 'Hospital-grade disinfectant cleaning for all rooms, deep kitchen degrease, and tile scrubbing.',
-    base_price: 129.0,
-    duration_minutes: 180,
-    category: { name: 'Home Cleaning' },
-    image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 5,
-    name: 'Smart Doorbell & Security Camera Setup',
-    description: 'Wiring and mounting of smart doorbells, wireless cam sync, and mobile app configuration.',
-    base_price: 69.0,
-    duration_minutes: 45,
-    category: { name: 'Electrical' },
-    image_url: 'https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 6,
-    name: 'Refrigerator Compressor & Cooling Tune-up',
-    description: 'Diagnostic troubleshooting, condenser coil cleaning, thermostat calibration, and gas check.',
-    base_price: 85.0,
-    duration_minutes: 60,
-    category: { name: 'Appliance Repair' },
-    image_url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
-  },
-];
 
 export default function Home() {
   const navigate = useNavigate();

@@ -74,14 +74,26 @@ This guide provides end-to-end instructions for deploying the **HomeServe Techno
 
 ---
 
-## 4. Step 2: Cloud MySQL Database Provisioning
+## 4. Step 2: Cloud Database Provisioning (MySQL or PostgreSQL)
 
-1. **Provision MySQL Instance**:
-   - Create a free or starter MySQL 8.0+ service on Aiven, AWS RDS, or Railway.
+HomeServe Technologies provides **native dual database engine support**. You can connect either a cloud **MySQL** database or a cloud **PostgreSQL** database (Supabase, Neon, Render PostgreSQL, Railway, AWS RDS, Aiven) without any application code changes.
+
+### Option A: Cloud PostgreSQL (Recommended for Render / Supabase / Neon)
+1. **Provision Instance**:
+   - Create a free database on [Supabase](https://supabase.com), [Neon](https://neon.tech), [Render PostgreSQL](https://render.com), or [Railway](https://railway.app).
+2. **Obtain Connection URI**:
+   - Copy the URI provided by your cloud dashboard. Both `postgres://` and `postgresql://` URI formats are automatically normalized by the backend engine to use `psycopg2-binary`.
+   - Example URI format:
+     ```text
+     postgresql+psycopg2://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:<DB_PORT>/<DB_NAME>?sslmode=require
+     ```
+
+### Option B: Cloud MySQL
+1. **Provision Instance**:
+   - Create a free or starter MySQL 8.0+ service on [Aiven for MySQL](https://aiven.io), [AWS RDS](https://aws.amazon.com/rds/), or [Railway MySQL](https://railway.app).
    - Create a database schema named `homeserve`.
 2. **Obtain Connection URI**:
-   - Copy the connection string provided by the cloud dashboard.
-   - Format it for SQLAlchemy with the PyMySQL driver:
+   - Format for SQLAlchemy with the PyMySQL driver:
      ```text
      mysql+pymysql://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:<DB_PORT>/homeserve
      ```
@@ -89,9 +101,10 @@ This guide provides end-to-end instructions for deploying the **HomeServe Techno
      ```text
      mysql+pymysql://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:<DB_PORT>/homeserve?ssl={"ssl_mode":"REQUIRED"}
      ```
-3. **Automated Schema Initialization**:
-   - On initial backend startup, SQLAlchemy's `Base.metadata.create_all()` will automatically create all 20 normalized tables and constraints.
-   - **Production Safety**: Set `SEED_DEMO_DATA=false` in production environment settings to ensure local demo records are not injected into a live customer database.
+
+### Automated Schema Initialization
+- On initial backend startup, SQLAlchemy's `Base.metadata.create_all()` will automatically create all 20 normalized tables and constraints on whichever database engine is configured.
+- **Production Safety**: Set `SEED_DEMO_DATA=false` in production environment settings to ensure local demo records are not injected into a live customer database.
 
 ---
 

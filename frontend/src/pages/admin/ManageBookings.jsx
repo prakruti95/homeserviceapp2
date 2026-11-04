@@ -110,7 +110,7 @@ export default function ManageBookings() {
                       {b.address}, {b.city}
                     </td>
                     <td className="py-3 px-6 text-right font-black text-gray-900">
-                      ${b.total_price?.toFixed(2)}
+                      ${Number(b.total_price || 0).toFixed(2)}
                     </td>
                     <td className="py-3 px-6">
                       <div className="flex flex-col gap-1 items-start">

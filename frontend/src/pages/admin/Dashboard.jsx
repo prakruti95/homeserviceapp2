@@ -187,9 +187,9 @@ export default function AdminDashboard() {
             <DollarSign className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-xl font-black text-emerald-600">${stats?.total_revenue?.toFixed(2) || '0.00'}</div>
+            <div className="text-xl font-black text-emerald-600">${Number(stats?.total_revenue || 0).toFixed(2)}</div>
             <div className="text-[10px] text-gray-400 font-medium">
-              Commission (10%): <strong className="text-gray-700">${stats?.platform_commission?.toFixed(2) || '0.00'}</strong>
+              Commission (10%): <strong className="text-gray-700">${Number(stats?.platform_commission || 0).toFixed(2)}</strong>
             </div>
           </div>
         </div>
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
             return (
               <div key={item.month} className="flex-1 flex flex-col items-center gap-2 group relative">
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 bg-gray-900 text-white text-[10px] font-bold py-1 px-2 rounded whitespace-nowrap z-20 pointer-events-none">
-                  {chartMetric === 'revenue' ? `$${val.toFixed(2)}` : `${val} jobs`}
+                  {chartMetric === 'revenue' ? `$${Number(val || 0).toFixed(2)}` : `${val} jobs`}
                 </div>
                 <div className="w-full max-w-[48px] bg-blue-50 hover:bg-blue-100 rounded-t-xl overflow-hidden flex flex-col justify-end h-44 transition-colors">
                   <div
@@ -302,11 +302,11 @@ export default function AdminDashboard() {
               <div key={srv.id} className="py-2.5 flex items-center justify-between text-xs">
                 <div>
                   <div className="font-bold text-gray-900">{srv.name}</div>
-                  <div className="text-[11px] text-gray-400">{srv.category} • Base ${srv.base_price?.toFixed(2)}</div>
+                  <div className="text-[11px] text-gray-400">{srv.category} • Base ${Number(srv.base_price || 0).toFixed(2)}</div>
                 </div>
                 <div className="text-right">
                   <div className="font-black text-gray-800">{srv.bookings} bookings</div>
-                  <div className="text-[11px] text-emerald-600 font-semibold">${srv.revenue?.toFixed(2)}</div>
+                  <div className="text-[11px] text-emerald-600 font-semibold">${Number(srv.revenue || 0).toFixed(2)}</div>
                 </div>
               </div>
             ))}

@@ -3,25 +3,28 @@ import { useSearchParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { Search, Filter, Clock, Star, Wrench, ArrowRight, Check } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { fallbackCategories, fallbackServices } from '../../data/catalog';
 
 export default function BrowseServices() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || '';
   const initialQuery = searchParams.get('q') || '';
 
-  const [categories, setCategories] = useState([]);
-  const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState(fallbackCategories);
+  const [services, setServices] = useState(fallbackServices);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function fetchCategories() {
       try {
         const { data } = await api.get('/services/categories');
-        setCategories(data || []);
+        if (Array.isArray(data) && data.length > 0) {
+          setCategories(data);
+        }
       } catch (err) {
-        console.error('Failed to load categories', err);
+        console.error('Failed to load categories, using catalog fallbacks', err);
       }
     }
     fetchCategories();
@@ -29,7 +32,6 @@ export default function BrowseServices() {
 
   useEffect(() => {
     async function fetchServices() {
-      setLoading(true);
       try {
         let url = '/services/?';
         const params = [];
@@ -38,9 +40,43 @@ export default function BrowseServices() {
         url += params.join('&');
 
         const { data } = await api.get(url);
-        setServices(data?.services || []);
+        if (Array.isArray(data?.services) && data.services.length > 0) {
+          setServices(data.services);
+        } else {
+          // Filter fallback catalog
+          let filtered = [...fallbackServices];
+          if (selectedCategory) {
+            filtered = filtered.filter(
+              (s) => String(s.category_id) === String(selectedCategory) ||
+                     s.category?.id === Number(selectedCategory)
+            );
+          }
+          if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(
+              (s) => s.name.toLowerCase().includes(q) ||
+                     (s.description && s.description.toLowerCase().includes(q))
+            );
+          }
+          setServices(filtered);
+        }
       } catch (err) {
-        console.error('Failed to load services', err);
+        console.error('Failed to load services, using catalog fallbacks', err);
+        let filtered = [...fallbackServices];
+        if (selectedCategory) {
+          filtered = filtered.filter(
+            (s) => String(s.category_id) === String(selectedCategory) ||
+                   s.category?.id === Number(selectedCategory)
+          );
+        }
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          filtered = filtered.filter(
+            (s) => s.name.toLowerCase().includes(q) ||
+                   (s.description && s.description.toLowerCase().includes(q))
+          );
+        }
+        setServices(filtered);
       } finally {
         setLoading(false);
       }
@@ -177,7 +213,7 @@ export default function BrowseServices() {
                 <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
                   <div>
                     <span className="text-[11px] text-gray-500 font-medium">Standard Price</span>
-                    <div className="text-2xl font-black text-gray-900">${srv.base_price.toFixed(2)}</div>
+                    <div className="text-2xl font-black text-gray-900">${Number(srv.base_price || 0).toFixed(2)}</div>
                   </div>
                   <Link
                     to={`/customer/book/${srv.id}`}

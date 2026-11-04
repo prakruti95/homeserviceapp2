@@ -333,7 +333,7 @@ export default function MyBookings() {
               <div className="flex flex-col sm:flex-row md:flex-col items-end justify-between gap-3 shrink-0">
                 <div className="text-right">
                   <span className="text-[11px] text-gray-400 uppercase font-bold">Total Price</span>
-                  <div className="text-xl font-black text-gray-900">${b.total_price?.toFixed(2)}</div>
+                  <div className="text-xl font-black text-gray-900">${Number(b.total_price || 0).toFixed(2)}</div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 justify-end">

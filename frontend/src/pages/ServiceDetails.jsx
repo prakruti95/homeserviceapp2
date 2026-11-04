@@ -6,6 +6,7 @@ import {
   ArrowLeft, Star, Wrench, Calendar, Sparkles, ThumbsUp 
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { fallbackServices } from '../data/catalog';
 
 export default function ServiceDetails() {
   const { id } = useParams();
@@ -20,12 +21,19 @@ export default function ServiceDetails() {
       try {
         const [srvRes, revRes] = await Promise.all([
           api.get(`/services/${id}`),
-          api.get('/reviews/'),
+          api.get('/reviews/').catch(() => ({ data: { reviews: [] } })),
         ]);
-        setService(srvRes.data);
+        if (srvRes.data) {
+          setService(srvRes.data);
+        } else {
+          const fallback = fallbackServices.find((s) => String(s.id) === String(id));
+          setService(fallback || null);
+        }
         setReviews(revRes.data?.reviews || []);
       } catch (err) {
-        console.error('Failed to load service details', err);
+        console.error('Failed to load service details, checking catalog fallback', err);
+        const fallback = fallbackServices.find((s) => String(s.id) === String(id));
+        setService(fallback || null);
       } finally {
         setLoading(false);
       }
@@ -126,7 +134,7 @@ export default function ServiceDetails() {
           <div className="p-6 bg-slate-50 rounded-2xl border border-gray-200 text-center sm:text-right shrink-0 space-y-4">
             <div>
               <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Fixed Standard Rate</span>
-              <div className="text-3xl font-black text-gray-900">${service.base_price.toFixed(2)}</div>
+              <div className="text-3xl font-black text-gray-900">${Number(service.base_price || 0).toFixed(2)}</div>
               <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">All standard labor included</div>
             </div>
 
