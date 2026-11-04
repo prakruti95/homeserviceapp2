@@ -15,6 +15,7 @@ class ServiceCategory(Base):
     name = Column(String(255), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     icon = Column(String(255), nullable=True)
+    image_url = Column(String(512), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
     created_at = Column(
@@ -40,6 +41,7 @@ class Service(Base):
     description = Column(Text, nullable=True)
     base_price = Column(Float, nullable=False, default=0.0)
     duration_minutes = Column(Integer, nullable=False, default=60)
+    image_url = Column(String(512), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
     created_at = Column(

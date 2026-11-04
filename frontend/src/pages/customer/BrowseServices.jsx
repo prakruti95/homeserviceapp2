@@ -142,36 +142,50 @@ export default function BrowseServices() {
           {services.map((srv) => (
             <div
               key={srv.id}
-              className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between hover:shadow-lg transition-all duration-300 group"
+              className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-xl transition-all duration-300 group"
             >
-              <div>
-                <div className="flex items-center justify-between text-xs text-blue-600 font-medium mb-3">
-                  <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md font-semibold">
-                    {srv.category?.name || 'Category'}
-                  </span>
-                  <span className="text-gray-500 flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" /> {srv.duration_minutes} mins
-                  </span>
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  {srv.name}
-                </h3>
-                <p className="text-xs text-gray-600 mt-2 line-clamp-3 leading-relaxed">
-                  {srv.description}
-                </p>
+              <div className="h-44 w-full relative overflow-hidden bg-slate-100">
+                {srv.image_url ? (
+                  <img
+                    src={srv.image_url}
+                    alt={srv.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-600">
+                    <Wrench className="h-8 w-8" />
+                  </div>
+                )}
+                <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs text-blue-700 text-xs font-bold px-2.5 py-1 rounded-md shadow-xs">
+                  {srv.category?.name || 'Category'}
+                </span>
+                <span className="absolute bottom-3 right-3 bg-black/65 backdrop-blur-xs text-white text-xs font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" /> {srv.duration_minutes} mins
+                </span>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+              <div className="p-6 flex-1 flex flex-col justify-between">
                 <div>
-                  <span className="text-xs text-gray-500 font-medium">Fixed Standard Price</span>
-                  <div className="text-2xl font-black text-gray-900">${srv.base_price.toFixed(2)}</div>
+                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                    {srv.name}
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-2 line-clamp-3 leading-relaxed">
+                    {srv.description}
+                  </p>
                 </div>
-                <Link
-                  to={`/customer/book/${srv.id}`}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
-                >
-                  Book Service <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+
+                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] text-gray-500 font-medium">Standard Price</span>
+                    <div className="text-2xl font-black text-gray-900">${srv.base_price.toFixed(2)}</div>
+                  </div>
+                  <Link
+                    to={`/customer/book/${srv.id}`}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    Book Service <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}

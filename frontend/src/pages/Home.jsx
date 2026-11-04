@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Wrench, Zap, Sparkles, Cpu, Paintbrush, ArrowRight, ShieldCheck, 
-  Clock, ThumbsUp, Star, CheckCircle, Search, Quote 
+  Clock, ThumbsUp, Star, CheckCircle, Search, Quote, Snowflake, Hammer, ShieldAlert 
 } from 'lucide-react';
 import api from '../services/api';
 import Footer from '../components/Footer';
@@ -10,9 +10,12 @@ import Footer from '../components/Footer';
 const categoryIcons = {
   Plumbing: Wrench,
   Electrical: Zap,
-  'Deep Cleaning': Sparkles,
+  'AC Repair': Snowflake,
+  'Home Cleaning': Sparkles,
+  Painting: Paintbrush,
+  Carpentry: Hammer,
   'Appliance Repair': Cpu,
-  'Painting & Drywall': Paintbrush,
+  'Pest Control': ShieldAlert,
 };
 
 export default function Home() {
@@ -116,28 +119,44 @@ export default function Home() {
       {/* Categories Grid */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl font-bold text-gray-900">Explore Service Categories</h2>
-          <p className="mt-3 text-gray-600">Select a category to view specialized solutions tailored to your home needs.</p>
+          <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">All 8 Service Verticals</span>
+          <h2 className="text-3xl font-extrabold text-gray-900 mt-1">Explore Service Categories</h2>
+          <p className="mt-3 text-gray-600 text-sm">Select a category to view specialized solutions tailored to your home needs.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6">
           {categories.map((cat) => {
             const IconComponent = categoryIcons[cat.name] || Wrench;
             return (
               <Link
                 key={cat.id}
                 to={`/customer/browse?category=${cat.id}`}
-                className="group bg-white p-6 rounded-2xl border border-gray-200 hover:border-blue-500 hover:shadow-xl transition-all duration-300 text-center flex flex-col items-center"
+                className="group relative bg-white rounded-2xl border border-gray-200 hover:border-blue-500 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col"
               >
-                <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                  <IconComponent className="h-8 w-8" />
+                <div className="h-32 sm:h-36 w-full relative overflow-hidden bg-slate-100">
+                  {cat.image_url ? (
+                    <img
+                      src={cat.image_url}
+                      alt={cat.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : null}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                    <div className="h-8 w-8 bg-blue-600/90 backdrop-blur-xs text-white rounded-lg flex items-center justify-center">
+                      <IconComponent className="h-4 w-4" />
+                    </div>
+                    <span className="text-white font-bold text-sm drop-shadow-sm">{cat.name}</span>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  {cat.name}
-                </h3>
-                <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-                  {cat.description}
-                </p>
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                    {cat.description}
+                  </p>
+                  <div className="mt-3 flex items-center text-xs font-semibold text-blue-600 group-hover:text-blue-700">
+                    Explore Services <ArrowRight className="h-3.5 w-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
               </Link>
             );
           })}
@@ -162,26 +181,41 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {services.slice(0, 6).map((srv) => (
-              <div key={srv.id} className="bg-slate-50 rounded-2xl border border-gray-200 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div>
-                  <div className="flex items-center justify-between text-xs text-blue-600 font-medium mb-3">
-                    <span className="bg-blue-100/70 px-2.5 py-1 rounded-md">{srv.category?.name || 'Home Service'}</span>
-                    <span className="text-gray-500 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {srv.duration_minutes} mins</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{srv.name}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-2">{srv.description}</p>
+              <div key={srv.id} className="bg-slate-50 rounded-2xl border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-lg transition-all group">
+                <div className="h-44 w-full relative overflow-hidden bg-slate-200">
+                  {srv.image_url ? (
+                    <img
+                      src={srv.image_url}
+                      alt={srv.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : null}
+                  <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs text-blue-700 text-xs font-bold px-2.5 py-1 rounded-md shadow-xs">
+                    {srv.category?.name || 'Home Service'}
+                  </span>
+                  <span className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-xs text-white text-xs font-medium px-2 py-0.5 rounded flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {srv.duration_minutes} mins
+                  </span>
                 </div>
-                <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="p-6 flex-1 flex flex-col justify-between">
                   <div>
-                    <span className="text-xs text-gray-500">Starting from</span>
-                    <div className="text-xl font-bold text-gray-900">${srv.base_price.toFixed(2)}</div>
+                    <h3 className="text-base font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                      {srv.name}
+                    </h3>
+                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{srv.description}</p>
                   </div>
-                  <Link
-                    to={`/customer/book/${srv.id}`}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
-                  >
-                    Book Now
-                  </Link>
+                  <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] text-gray-500 font-medium">Standard Fixed Rate</span>
+                      <div className="text-xl font-black text-gray-900">${srv.base_price.toFixed(2)}</div>
+                    </div>
+                    <Link
+                      to={`/customer/book/${srv.id}`}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                    >
+                      Book Now
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}

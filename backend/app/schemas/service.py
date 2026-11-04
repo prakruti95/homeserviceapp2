@@ -10,12 +10,14 @@ class ServiceCategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     icon: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class ServiceCategoryUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     icon: Optional[str] = None
+    image_url: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -24,6 +26,7 @@ class ServiceCategoryResponse(BaseModel):
     name: str
     description: Optional[str] = None
     icon: Optional[str] = None
+    image_url: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -39,6 +42,7 @@ class ServiceCreate(BaseModel):
     description: Optional[str] = None
     base_price: float = Field(..., ge=0)
     duration_minutes: int = Field(60, ge=1)
+    image_url: Optional[str] = None
 
 
 class ServiceUpdate(BaseModel):
@@ -47,6 +51,7 @@ class ServiceUpdate(BaseModel):
     description: Optional[str] = None
     base_price: Optional[float] = Field(None, ge=0)
     duration_minutes: Optional[int] = Field(None, ge=1)
+    image_url: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -57,6 +62,7 @@ class ServiceResponse(BaseModel):
     description: Optional[str] = None
     base_price: float
     duration_minutes: int
+    image_url: Optional[str] = None
     is_active: bool
     category: Optional[ServiceCategoryResponse] = None
     created_at: datetime

@@ -68,15 +68,40 @@ export default function ServiceDetails() {
 
       {/* Main Service Hero Card */}
       <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm">
+        {service.image_url && (
+          <div className="h-64 sm:h-80 w-full relative overflow-hidden bg-slate-100">
+            <img
+              src={service.image_url}
+              alt={service.name}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-950/80 via-gray-950/20 to-transparent" />
+            <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+              <div>
+                <span className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-sm">
+                  {service.category?.name || 'Verified Service'}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-black text-white mt-2 drop-shadow-sm">
+                  {service.name}
+                </h1>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="p-8 sm:p-10 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-md">
-              <Sparkles className="h-3.5 w-3.5" />
-              {service.category?.name || 'Professional Service'}
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
-              {service.name}
-            </h1>
+            {!service.image_url && (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-md">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {service.category?.name || 'Professional Service'}
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
+                  {service.name}
+                </h1>
+              </>
+            )}
             <p className="text-sm text-gray-600 max-w-2xl leading-relaxed">
               {service.description}
             </p>

@@ -61,7 +61,43 @@
 - ✅ **Never Fake**: Every booking creates a genuine record in MySQL via `POST /api/bookings`. Every payment generates a `TXN-...` reference via `POST /api/payments`. Every review updates provider averages via `POST /api/reviews`.
 - ✅ **Invoicing**: `InvoiceModal.jsx` provides printable tax receipts with client address, service breakdown, duration, and transaction references.
 - ✅ **Notifications Center (`/notifications`)**: Full-page notifications manager with unread badges, mark-read, mark-all-read, and delete actions.
-- ✅ **Production Build Verification**: `npm run build` succeeds cleanly (`✓ built in 463ms`, 2154 modules transformed, zero unresolved imports or compile errors).
+- ✅ **Production Build Verification**: `npm run build` succeeds cleanly (`✓ built in 474ms`, 2154 modules transformed, zero unresolved imports or compile errors).
+
+### Phase 5: Prompt 2 Verification & Polish
+- ✅ **1. Realistic Home Service Imagery**:
+  - Added `image_url` column in MySQL `services` and `service_categories` tables.
+  - Curated and seeded high-resolution, thematic photography across all services and category headers.
+  - Integrated dynamic image rendering across `Home.jsx` (category cards and popular services), `BrowseServices.jsx` (service catalog cards), `ServiceCard.jsx`, and `ServiceDetails.jsx` (hero photography banner).
+- ✅ **2. All 8 Required Categories Verified**:
+  1. `Electrical` (Icon: `Zap` – Wiring, breaker diagnostic, smart dimmers, safety audits)
+  2. `Plumbing` (Icon: `Wrench` – Pipe leaks, drain clearing, water heater, sinks)
+  3. `AC Repair` (Icon: `Snowflake` – Coil deep clean, gas refill, HVAC diagnostics, split AC install)
+  4. `Home Cleaning` (Icon: `Sparkles` – Full house deep clean, kitchen degreasing, bathroom tiles, sofa shampoo)
+  5. `Painting` (Icon: `Paintbrush` – Accent walls, drywall repair, living room repainting)
+  6. `Carpentry` (Icon: `Hammer` – Flat-pack furniture assembly, wood shelving, door locks & hinges)
+  7. `Appliance Repair` (Icon: `Cpu` – Refrigerator cooling, washer motor repair, oven heating elements)
+  8. `Pest Control` (Icon: `ShieldAlert` – Insect sprays, termite barriers, bedbug steam treatments)
+- ✅ **3. Public Pages & Authenticated Modules Verified**:
+  - Public: Landing (`/`), Services Catalog (`/services`, `/customer/browse`), Service Details (`/services/:id`), Provider Details (`/providers/:id`), Login (`/login`), Registration (`/register`), About (`/about`), Contact (`/contact`), 404 (`*`).
+  - Customer: Dashboard, Browse Services, Book Service, My Bookings, Payment History, Reviews, Complaints, Profile.
+  - Provider: Dashboard, Manage Bookings, Working Hours / Availability, Earnings & Payouts, Business Profile.
+  - Technician: Field Dispatches Hub (`/technician/dashboard`) with GPS directions and work order sign-offs.
+  - Admin: Platform Master Console (`/admin/dashboard`), User Directory (`/admin/users`), Catalog Manager (`/admin/services`), System Bookings (`/admin/bookings`).
+- ✅ **4. Functional Charts, Search, Filters & Tables**:
+  - Admin Dashboard: Added interactive 6-month Revenue & Bookings Velocity chart with metric toggle (`Revenue ($)` vs `Bookings Volume`), tooltips, and bookings status distribution bars.
+  - Provider Earnings: Added weekly payout breakdown chart with daily bars and take-home calculations.
+  - Search & Filters: Real-time keyword search, category filter pills with instant updates, query parameter synchronization, and filter reset controls.
+  - Tables & Modals: Responsive tables with pagination and action buttons; modals for booking, reviewing, category/service creation, and invoice printing.
+- ✅ **5. Role-Specific Dashboards & Navigation**:
+  - Dedicated sidebars for each role (`customerLinks`, `providerLinks`, `technicianLinks`, `adminLinks`).
+  - Persona-specific actions, metrics, and workflows.
+  - 1-click test credential login buttons on `/login` to preview all 4 roles instantly.
+- ✅ **6. Meaningful Actions on All Visible Controls**:
+  - All buttons trigger validated API requests or navigation routes.
+  - No dead links or placeholder actions.
+- ✅ **7. Build & Automated E2E Verification**:
+  - `npm run build`: PASSED (0 errors, 474ms).
+  - Backend integration test (`python tests/test_e2e.py`): 100% PASSED across all 7 stages (auth -> catalog -> booking -> payment -> provider state transitions -> review -> admin analytics).
 
 ### Pending / Future Enhancements (Post-Competition Roadmap)
 - ⬜ Real-time WebSocket push notifications for active GPS technician tracking

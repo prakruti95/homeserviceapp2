@@ -68,6 +68,50 @@ export default function ProviderEarnings() {
         </div>
       </div>
 
+      {/* Weekly Earnings Velocity Chart */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-emerald-600" /> Weekly Payout Breakdown
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Estimated daily earnings distributed through current cycle</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md">
+            Direct Deposit Active
+          </span>
+        </div>
+
+        <div className="h-44 flex items-end justify-between gap-3 pt-4 border-b border-gray-100 pb-2">
+          {[
+            { day: 'Mon', amount: 140 },
+            { day: 'Tue', amount: 210 },
+            { day: 'Wed', amount: 185 },
+            { day: 'Thu', amount: 290 },
+            { day: 'Fri', amount: 350 },
+            { day: 'Sat', amount: 410 },
+            { day: 'Sun', amount: 95 },
+          ].map((bar) => {
+            const maxBar = 450;
+            const heightPct = Math.round((bar.amount / maxBar) * 100);
+            return (
+              <div key={bar.day} className="flex-1 flex flex-col items-center gap-2 group relative">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-7 bg-gray-900 text-white text-[10px] font-bold py-1 px-1.5 rounded pointer-events-none">
+                  ${bar.amount}
+                </div>
+                <div className="w-full max-w-[36px] bg-slate-100 rounded-t-lg overflow-hidden h-32 flex flex-col justify-end">
+                  <div
+                    style={{ height: `${heightPct}%` }}
+                    className="w-full bg-gradient-to-t from-emerald-600 to-teal-400 rounded-t-lg group-hover:from-emerald-500 group-hover:to-teal-300 transition-all duration-300"
+                  />
+                </div>
+                <span className="text-xs font-bold text-gray-500">{bar.day}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Itemized Transactions Table */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100">
