@@ -49,6 +49,8 @@ export default function App() {
         <Route element={<Layout />}>
           {/* Public & Guest Routes */}
           <Route path="/" element={<Home />} />
+          <Route path="/index.html" element={<Home />} />
+          <Route path="/index" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/services" element={<BrowseServices />} />

@@ -51,7 +51,7 @@ export default function Layout() {
     : user?.role === 'technician' ? technicianLinks
     : customerLinks;
 
-  const isPublicStandalone = ['/', '/about', '/contact'].includes(location.pathname);
+  const isPublicStandalone = ['/', '/index.html', '/index', '/about', '/contact'].includes(location.pathname);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
