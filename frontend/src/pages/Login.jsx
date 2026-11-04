@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, Shield, Briefcase, User, Lock, Mail, ArrowRight } from 'lucide-react';
+import { LogIn, Shield, Briefcase, User, Lock, Mail, ArrowRight, Wrench } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Login() {
@@ -29,6 +29,8 @@ export default function Login() {
         navigate('/admin/dashboard');
       } else if (user.role === 'provider') {
         navigate('/provider/dashboard');
+      } else if (user.role === 'technician') {
+        navigate('/technician/dashboard');
       } else {
         navigate('/customer/dashboard');
       }
@@ -47,6 +49,7 @@ export default function Login() {
       const user = await login(demoEmail, demoPassword);
       if (user.role === 'admin') navigate('/admin/dashboard');
       else if (user.role === 'provider') navigate('/provider/dashboard');
+      else if (user.role === 'technician') navigate('/technician/dashboard');
       else navigate('/customer/dashboard');
     } catch (err) {
       // error handled by api interceptor
@@ -125,29 +128,37 @@ export default function Login() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-center mb-3">
               1-Click Demo Evaluation Logins
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickLogin('admin@homeserve.com', 'admin123')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-rose-200 bg-rose-50/60 hover:bg-rose-100/70 text-rose-800 transition-colors text-xs font-medium cursor-pointer"
+                className="flex flex-col items-center justify-center p-2 rounded-xl border border-rose-200 bg-rose-50/60 hover:bg-rose-100/70 text-rose-800 transition-colors text-xs font-medium cursor-pointer"
               >
-                <Shield className="h-5 w-5 mb-1 text-rose-600" />
+                <Shield className="h-4 w-4 mb-1 text-rose-600" />
                 Admin
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('provider@homeserve.com', 'provider123')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 text-amber-800 transition-colors text-xs font-medium cursor-pointer"
+                className="flex flex-col items-center justify-center p-2 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 text-amber-800 transition-colors text-xs font-medium cursor-pointer"
               >
-                <Briefcase className="h-5 w-5 mb-1 text-amber-600" />
+                <Briefcase className="h-4 w-4 mb-1 text-amber-600" />
                 Provider
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickLogin('customer@homeserve.com', 'customer123')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 text-blue-800 transition-colors text-xs font-medium cursor-pointer"
+                onClick={() => handleQuickLogin('technician@homeserve.com', 'tech123')}
+                className="flex flex-col items-center justify-center p-2 rounded-xl border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100/70 text-indigo-800 transition-colors text-xs font-medium cursor-pointer"
               >
-                <User className="h-5 w-5 mb-1 text-blue-600" />
+                <Wrench className="h-4 w-4 mb-1 text-indigo-600" />
+                Technician
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('customer@homeserve.com', 'customer123')}
+                className="flex flex-col items-center justify-center p-2 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 text-blue-800 transition-colors text-xs font-medium cursor-pointer"
+              >
+                <User className="h-4 w-4 mb-1 text-blue-600" />
                 Customer
               </button>
             </div>

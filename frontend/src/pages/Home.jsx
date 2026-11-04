@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Wrench, Zap, Sparkles, Cpu, Paintbrush, ArrowRight, ShieldCheck, 
-  Clock, ThumbsUp, Star, CheckCircle, Search
+  Clock, ThumbsUp, Star, CheckCircle, Search, Quote 
 } from 'lucide-react';
 import api from '../services/api';
+import Footer from '../components/Footer';
 
 const categoryIcons = {
   Plumbing: Wrench,
@@ -228,6 +229,81 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Customer Testimonials Section */}
+      <section className="py-20 bg-slate-100/70 border-t border-gray-200 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Real Feedback</span>
+            <h2 className="text-3xl font-black text-gray-900 mt-1">Loved by Homeowners Everywhere</h2>
+            <p className="mt-2 text-gray-600 text-sm">
+              Discover why over 50,000 households rely on HomeServe for their routine repairs and emergencies.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm space-y-4">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-700 leading-relaxed italic">
+                "Our kitchen pipe burst late on a Sunday evening. We booked through HomeServe, and Alex from ProFix arrived within 45 minutes with all the copper fittings ready. Saved us thousands in potential water damage!"
+              </p>
+              <div className="pt-2 border-t border-gray-100 flex items-center gap-3">
+                <div className="h-10 w-10 bg-blue-100 text-blue-700 font-bold rounded-full flex items-center justify-center text-xs">
+                  DC
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs text-gray-900">David Chen</h4>
+                  <span className="text-[11px] text-gray-400">San Francisco, CA</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm space-y-4">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-700 leading-relaxed italic">
+                "As a landlord managing 4 rental units, HomeServe has been a game changer. I schedule electrical audits and deep cleanings, receive itemized invoices automatically, and track technician arrival in real-time."
+              </p>
+              <div className="pt-2 border-t border-gray-100 flex items-center gap-3">
+                <div className="h-10 w-10 bg-purple-100 text-purple-700 font-bold rounded-full flex items-center justify-center text-xs">
+                  MR
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs text-gray-900">Melissa Rodriguez</h4>
+                  <span className="text-[11px] text-gray-400">Oakland, CA</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm space-y-4">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-700 leading-relaxed italic">
+                "Upfront fixed pricing is the best feature. No awkward haggling on your front porch. The technician was polite, wore boot covers, and finished the AC compressor diagnostic right on time."
+              </p>
+              <div className="pt-2 border-t border-gray-100 flex items-center gap-3">
+                <div className="h-10 w-10 bg-emerald-100 text-emerald-700 font-bold rounded-full flex items-center justify-center text-xs">
+                  JL
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs text-gray-900">James Livingston</h4>
+                  <span className="text-[11px] text-gray-400">San Jose, CA</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Footer Section */}
       <section className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white py-16 px-4 sm:px-6 lg:px-8 text-center">
         <div className="max-w-4xl mx-auto">
@@ -238,19 +314,22 @@ export default function Home() {
           <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
             <Link
               to="/register"
-              className="px-8 py-3.5 bg-white text-blue-700 font-bold rounded-xl shadow-lg hover:bg-blue-50 transition-colors"
+              className="px-8 py-3.5 bg-white text-blue-700 font-bold rounded-xl shadow-lg hover:bg-blue-50 transition-colors cursor-pointer"
             >
               Get Started as Customer
             </Link>
             <Link
               to="/register?role=provider"
-              className="px-8 py-3.5 bg-blue-600 border border-blue-400 text-white font-bold rounded-xl hover:bg-blue-500 transition-colors"
+              className="px-8 py-3.5 bg-blue-600 border border-blue-400 text-white font-bold rounded-xl hover:bg-blue-500 transition-colors cursor-pointer"
             >
               Join as Service Provider
             </Link>
           </div>
         </div>
       </section>
+
+      {/* Reusable Footer */}
+      <Footer />
     </div>
   );
 }

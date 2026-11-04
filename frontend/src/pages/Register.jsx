@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { User, Briefcase, Mail, Lock, Phone, MapPin, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function Register() {
+export default function Register({ defaultRole }) {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const [role, setRole] = useState(searchParams.get('role') === 'provider' ? 'provider' : 'customer');
+  const isProviderPath = location.pathname.includes('provider') || searchParams.get('role') === 'provider' || defaultRole === 'provider';
+  const [role, setRole] = useState(isProviderPath ? 'provider' : 'customer');
   const [formData, setFormData] = useState({
     email: '',
     password: '',

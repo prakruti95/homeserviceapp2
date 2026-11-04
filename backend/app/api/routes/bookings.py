@@ -39,6 +39,9 @@ def list_bookings(
         query = query.filter(Booking.customer_id == current_user.id)
     elif current_user.role == UserRole.PROVIDER:
         query = query.filter(Booking.provider_id == current_user.id)
+    elif current_user.role == UserRole.TECHNICIAN:
+        # Technicians see active dispatched orders
+        query = query.filter(Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED]))
     # admin sees all
 
     if status_filter:
@@ -141,6 +144,8 @@ def update_booking_status(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your booking")
     if current_user.role == UserRole.PROVIDER and booking.provider_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your booking")
+    if current_user.role == UserRole.TECHNICIAN and payload.status not in (BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Technicians can only advance to in-progress or completed")
 
     # Validate transition
     allowed = BOOKING_STATUS_TRANSITIONS.get(booking.status, [])

@@ -118,6 +118,25 @@ def _seed_all_data(db: Session) -> None:
         db.commit()
         logger.info("Demo Customer seeded: customer@homeserve.com")
 
+    # 4. Seed Demo Field Technician
+    tech = db.query(User).filter(User.email == "technician@homeserve.com").first()
+    if not tech:
+        tech = User(
+            email="technician@homeserve.com",
+            hashed_password=hash_password("tech123"),
+            full_name="Dave Miller (Field Specialist)",
+            phone="+1-800-555-0155",
+            role=UserRole.TECHNICIAN,
+            city="San Francisco",
+            state="CA",
+            zip_code="94103",
+            address="332 Mission St",
+            is_active=True,
+        )
+        db.add(tech)
+        db.commit()
+        logger.info("Demo Technician seeded: technician@homeserve.com")
+
     # 4. Seed Categories and Services
     categories_data = [
         {
