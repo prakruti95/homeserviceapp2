@@ -36,11 +36,21 @@ export default function Register({ defaultRole }) {
     }
     setSubmitting(true);
     try {
-      await register({
+      const res = await register({
         ...formData,
         role,
       });
-      navigate('/login');
+      if (res?.access_token) {
+        if (role === 'provider') {
+          navigate('/provider/dashboard');
+        } else if (role === 'technician') {
+          navigate('/technician/dashboard');
+        } else {
+          navigate('/customer/dashboard');
+        }
+      } else {
+        navigate('/login');
+      }
     } catch (err) {
       // toast shown by interceptor
     } finally {

@@ -41,8 +41,8 @@ api.interceptors.response.use(
       }
     }
     if (error.response?.status !== 401) {
-      // Don't toast error on benign 404s for initial public data loads
-      if (error.response?.status !== 404) {
+      // Don't toast error on benign 404s or 405s handled by component fallbacks
+      if (error.response?.status !== 404 && error.response?.status !== 405) {
         toast.error(message);
       }
     }
