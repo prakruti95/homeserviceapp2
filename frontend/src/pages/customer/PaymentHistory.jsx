@@ -31,7 +31,7 @@ export default function PaymentHistory() {
   }, []);
 
   const totalSpent = payments
-    .filter((p) => p.status === 'completed')
+    .filter((p) => ['completed', 'paid'].includes(p.status))
     .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const handleOpenInvoice = (payment) => {
@@ -132,7 +132,7 @@ export default function PaymentHistory() {
                       Booking #{p.booking_id}
                     </td>
                     <td className="py-3 px-6 capitalize text-gray-700">
-                      {p.payment_method?.replace('_', ' ') || 'Credit Card'}
+                      {p.payment_method === 'wallet' ? 'UPI Demo' : (p.payment_method?.replace('_', ' ') || 'Demo Card')}
                     </td>
                     <td className="py-3 px-6 text-gray-500">
                       {new Date(p.created_at).toLocaleDateString()}
@@ -142,9 +142,9 @@ export default function PaymentHistory() {
                     </td>
                     <td className="py-3 px-6">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        p.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        ['completed', 'paid'].includes(p.status) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                       }`}>
-                        {p.status}
+                        {['completed', 'paid'].includes(p.status) ? 'PAID' : p.status}
                       </span>
                     </td>
                     <td className="py-3 px-6 text-right">

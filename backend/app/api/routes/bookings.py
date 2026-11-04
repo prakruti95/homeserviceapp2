@@ -76,6 +76,15 @@ def _enrich(booking: Booking) -> BookingDetailResponse:
     if booking.assignments:
         latest_assign = booking.assignments[-1]
         data["technician_name"] = latest_assign.technician.full_name if latest_assign.technician else None
+
+    # Check payment status
+    if booking.payment:
+        pay_st = booking.payment.status
+        data["payment_status"] = pay_st.value if hasattr(pay_st, "value") else str(pay_st)
+        data["payment_id"] = booking.payment.id
+        data["transaction_id"] = booking.payment.transaction_id
+    else:
+        data["payment_status"] = "pending"
     return BookingDetailResponse(**data)
 
 

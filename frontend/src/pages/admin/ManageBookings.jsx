@@ -113,15 +113,26 @@ export default function ManageBookings() {
                       ${b.total_price?.toFixed(2)}
                     </td>
                     <td className="py-3 px-6">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                        b.status === 'in_progress' ? 'bg-indigo-100 text-indigo-700' :
-                        b.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                        b.status === 'cancelled' ? 'bg-rose-100 text-rose-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
-                        {b.status.replace('_', ' ')}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                          b.status === 'in_progress' ? 'bg-indigo-100 text-indigo-700' :
+                          b.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                          b.status === 'cancelled' ? 'bg-rose-100 text-rose-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {b.status.replace('_', ' ')}
+                        </span>
+                        {b.payment_status && (
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider ${
+                            ['completed', 'paid'].includes(b.payment_status)
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {['completed', 'paid'].includes(b.payment_status) ? 'PAID' : 'PAYMENT PENDING'}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-6 text-right">
                       <select

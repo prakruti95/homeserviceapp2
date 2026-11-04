@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
   CalendarDays, Clock, MapPin, DollarSign, Star, 
@@ -9,8 +10,10 @@ import {
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import InvoiceModal from '../../components/InvoiceModal';
+import DemoPaymentModal from '../../components/DemoPaymentModal';
 
 export default function MyBookings() {
+  const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -42,7 +45,8 @@ export default function MyBookings() {
   // Invoice Modal State
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
-  // Demo payment processing state
+  // Demo payment modal state
+  const [paymentModalBooking, setPaymentModalBooking] = useState(null);
   const [payingBookingId, setPayingBookingId] = useState(null);
 
   const fetchBookings = async () => {
@@ -286,6 +290,15 @@ export default function MyBookings() {
                   }`}>
                     {b.status.replace('_', ' ')}
                   </span>
+                  {b.payment_status && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                      b.payment_status === 'completed' || b.payment_status === 'paid'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {b.payment_status === 'completed' || b.payment_status === 'paid' ? 'PAID' : 'PAYMENT PENDING'}
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-500">
@@ -324,15 +337,14 @@ export default function MyBookings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 justify-end">
-                  {/* Pay Now Button for Pending Bookings */}
-                  {b.status === 'pending' && (
+                  {/* Demo Payment Button */}
+                  {(b.status === 'pending' || b.payment_status === 'pending') && b.status !== 'cancelled' && (
                     <button
-                      disabled={payingBookingId === b.id}
-                      onClick={() => handleProcessPayment(b)}
-                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shadow-sm cursor-pointer"
+                      onClick={() => setPaymentModalBooking(b)}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                     >
                       <CreditCard className="h-3.5 w-3.5" />
-                      {payingBookingId === b.id ? 'Processing...' : 'Pay Now (Demo)'}
+                      Demo Payment
                     </button>
                   )}
 
@@ -631,6 +643,21 @@ export default function MyBookings() {
           booking={selectedInvoice.booking}
           payment={selectedInvoice.payment}
           onClose={() => setSelectedInvoice(null)}
+        />
+      )}
+
+      {/* Demo Payment Modal */}
+      {paymentModalBooking && (
+        <DemoPaymentModal
+          booking={paymentModalBooking}
+          customerName={user?.full_name}
+          onClose={() => setPaymentModalBooking(null)}
+          onSuccess={() => {
+            fetchBookings();
+          }}
+          onOpenInvoice={(booking) => {
+            handleOpenInvoice(booking);
+          }}
         />
       )}
     </div>

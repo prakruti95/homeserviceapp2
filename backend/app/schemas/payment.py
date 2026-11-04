@@ -22,6 +22,8 @@ class DemoPaymentRequest(BaseModel):
     booking_id: int
     payment_method: PaymentMethod = PaymentMethod.CREDIT_CARD
     card_last4: Optional[str] = "4242"
+    upi_id: Optional[str] = None
+    cardholder_name: Optional[str] = None
 
 
 class PaymentResponse(BaseModel):

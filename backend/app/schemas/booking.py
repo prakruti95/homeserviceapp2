@@ -97,6 +97,9 @@ class BookingDetailResponse(BookingResponse):
     provider_name: Optional[str] = None
     service_name: Optional[str] = None
     technician_name: Optional[str] = None
+    payment_status: Optional[str] = None
+    payment_id: Optional[int] = None
+    transaction_id: Optional[str] = None
 
 
 class BookingListResponse(BaseModel):

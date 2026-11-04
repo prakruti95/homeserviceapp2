@@ -239,7 +239,7 @@ export default function BookService() {
           <div className="flex justify-between">
             <span className="text-gray-500">Payment Status:</span>
             <span className="font-semibold text-emerald-600">
-              {paymentMethod === 'credit_card' ? 'Paid via Demo Card (Instant Confirmation)' : 'Pay on Completion (Cash)'}
+              {paymentMethod === 'credit_card' ? 'Demo Payment (Instant Confirmation)' : 'Pay on Completion (Cash)'}
             </span>
           </div>
         </div>
@@ -526,8 +526,8 @@ export default function BookService() {
                   />
                   <CreditCard className="h-4 w-4 text-gray-600" />
                   <div>
-                    <span className="text-xs font-medium text-gray-800 block">Instant Card (Demo)</span>
-                    <span className="text-[10px] text-gray-400 block">Immediate booking confirmation & invoice</span>
+                    <span className="text-xs font-medium text-gray-800 block">Demo Payment</span>
+                    <span className="text-[10px] text-gray-400 block">Immediate booking confirmation, demo card/UPI & invoice</span>
                   </div>
                 </label>
                 <label className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">

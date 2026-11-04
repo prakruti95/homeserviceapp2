@@ -8,6 +8,7 @@ import {
   CheckCircle2, FileText, User 
 } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import DemoPaymentModal from '../../components/DemoPaymentModal';
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
@@ -15,26 +16,28 @@ export default function CustomerDashboard() {
   const [categories, setCategories] = useState([]);
   const [topProviders, setTopProviders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paymentModalBooking, setPaymentModalBooking] = useState(null);
+
+  const loadData = async () => {
+    try {
+      const [bookRes, catRes, provRes] = await Promise.all([
+        api.get('/bookings/'),
+        api.get('/services/categories'),
+        api.get('/providers/').catch(() => ({ data: [] })),
+      ]);
+      setBookings(bookRes.data?.bookings || []);
+      setCategories(catRes.data || []);
+      const rawProviders = provRes.data;
+      const pList = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
+      setTopProviders(pList.slice(0, 3));
+    } catch (err) {
+      console.error('Failed to load customer dashboard', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [bookRes, catRes, provRes] = await Promise.all([
-          api.get('/bookings/'),
-          api.get('/services/categories'),
-          api.get('/providers/').catch(() => ({ data: [] })),
-        ]);
-        setBookings(bookRes.data?.bookings || []);
-        setCategories(catRes.data || []);
-        const rawProviders = provRes.data;
-        const pList = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
-        setTopProviders(pList.slice(0, 3));
-      } catch (err) {
-        console.error('Failed to load customer dashboard', err);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, []);
 
@@ -179,17 +182,37 @@ export default function CustomerDashboard() {
                     <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
                       <div className="text-right">
                         <div className="font-bold text-gray-900 text-sm">${b.total_price?.toFixed(2)}</div>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                          b.status === 'provider_assigned' ? 'bg-purple-100 text-purple-700' :
-                          b.status === 'in_progress' ? 'bg-indigo-100 text-indigo-700' :
-                          b.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                          b.status === 'cancelled' ? 'bg-rose-100 text-rose-700' :
-                          'bg-amber-100 text-amber-700'
-                        }`}>
-                          {b.status.replace('_', ' ')}
-                        </span>
+                        <div className="flex items-center gap-1 justify-end mt-0.5">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                            b.status === 'provider_assigned' ? 'bg-purple-100 text-purple-700' :
+                            b.status === 'in_progress' ? 'bg-indigo-100 text-indigo-700' :
+                            b.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                            b.status === 'cancelled' ? 'bg-rose-100 text-rose-700' :
+                            'bg-amber-100 text-amber-700'
+                          }`}>
+                            {b.status.replace('_', ' ')}
+                          </span>
+                          {b.payment_status && (
+                            <span className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                              ['completed', 'paid'].includes(b.payment_status)
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}>
+                              {['completed', 'paid'].includes(b.payment_status) ? 'PAID' : 'DUE'}
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      {(b.status === 'pending' || b.payment_status === 'pending') && b.status !== 'cancelled' && (
+                        <button
+                          onClick={() => setPaymentModalBooking(b)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Demo Payment
+                        </button>
+                      )}
                       <Link
                         to="/customer/bookings"
                         className="px-3 py-1.5 border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl transition-colors"
@@ -268,6 +291,18 @@ export default function CustomerDashboard() {
           ))}
         </div>
       </div>
+
+      {/* Demo Payment Modal */}
+      {paymentModalBooking && (
+        <DemoPaymentModal
+          booking={paymentModalBooking}
+          customerName={user?.full_name}
+          onClose={() => setPaymentModalBooking(null)}
+          onSuccess={() => {
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 }
