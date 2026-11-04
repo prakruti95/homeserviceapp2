@@ -80,6 +80,7 @@ def _enrich(booking: Booking) -> BookingDetailResponse:
 
 
 @router.get("", response_model=BookingListResponse)
+@router.get("/", response_model=BookingListResponse, include_in_schema=False)
 def list_bookings(
     db: DB,
     current_user: CurrentUser,
@@ -128,6 +129,7 @@ def get_booking(booking_id: int, db: DB, current_user: CurrentUser) -> BookingDe
 
 
 @router.post("", response_model=BookingDetailResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=BookingDetailResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_booking(payload: BookingCreate, db: DB, current_user: CurrentUser) -> BookingDetailResponse:
     """Create a new booking with transaction safety, overlap prevention, and optional coupon discount."""
     if current_user.role not in (UserRole.CUSTOMER, UserRole.ADMIN, UserRole.SUPER_ADMIN):

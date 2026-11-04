@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { 
   CalendarDays, Clock, MapPin, DollarSign, Star, 
-  XCircle, CheckCircle2, AlertCircle, RefreshCw 
+  XCircle, CheckCircle2, AlertCircle, RefreshCw, 
+  FileText, CreditCard, AlertTriangle, Calendar 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import StarRating from '../../components/StarRating';
+import InvoiceModal from '../../components/InvoiceModal';
 
 export default function MyBookings() {
   const [bookings, setBookings] = useState([]);
@@ -19,6 +20,30 @@ export default function MyBookings() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Reschedule Modal State
+  const [rescheduleBooking, setRescheduleBooking] = useState(null);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('10:00');
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
+
+  // Cancel Modal State
+  const [cancelBooking, setCancelBooking] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [submittingCancel, setSubmittingCancel] = useState(false);
+
+  // Complaint Modal State
+  const [complaintBooking, setComplaintBooking] = useState(null);
+  const [complaintSubject, setComplaintSubject] = useState('');
+  const [complaintDesc, setComplaintDesc] = useState('');
+  const [complaintPriority, setComplaintPriority] = useState('medium');
+  const [submittingComplaint, setSubmittingComplaint] = useState(false);
+
+  // Invoice Modal State
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+  // Demo payment processing state
+  const [payingBookingId, setPayingBookingId] = useState(null);
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -36,17 +61,120 @@ export default function MyBookings() {
     fetchBookings();
   }, []);
 
-  const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+  const handleOpenReschedule = (booking) => {
+    setRescheduleBooking(booking);
+    setNewDate(booking.scheduled_date);
+    setNewTime(booking.scheduled_time?.slice(0, 5) || '10:00');
+  };
+
+  const handleConfirmReschedule = async (e) => {
+    e.preventDefault();
+    if (!rescheduleBooking) return;
+    setSubmittingReschedule(true);
     try {
-      await api.patch(`/bookings/${bookingId}/status`, {
-        status: 'cancelled',
-        cancellation_reason: 'Cancelled by customer',
+      const timeFmt = newTime.length === 5 ? `${newTime}:00` : newTime;
+      await api.patch(`/bookings/${rescheduleBooking.id}/reschedule`, {
+        scheduled_date: newDate,
+        scheduled_time: timeFmt,
       });
-      toast.success('Booking cancelled successfully');
+      toast.success('Booking successfully rescheduled');
+      setRescheduleBooking(null);
       fetchBookings();
     } catch (err) {
       // toast shown by interceptor
+    } finally {
+      setSubmittingReschedule(false);
+    }
+  };
+
+  const handleOpenCancel = (booking) => {
+    setCancelBooking(booking);
+    setCancelReason('Customer schedule change');
+  };
+
+  const handleConfirmCancel = async (e) => {
+    e.preventDefault();
+    if (!cancelBooking) return;
+    setSubmittingCancel(true);
+    try {
+      await api.patch(`/bookings/${cancelBooking.id}/cancel`, {
+        cancellation_reason: cancelReason.trim() || 'Cancelled by customer',
+      });
+      toast.success('Booking cancelled successfully');
+      setCancelBooking(null);
+      fetchBookings();
+    } catch (err) {
+      // toast shown by interceptor
+    } finally {
+      setSubmittingCancel(false);
+    }
+  };
+
+  const handleProcessPayment = async (booking) => {
+    setPayingBookingId(booking.id);
+    try {
+      await api.post('/payments/process-demo', {
+        booking_id: booking.id,
+        amount: booking.total_price,
+        payment_method: 'credit_card',
+        demo_card_number: '4242424242424242',
+      });
+      toast.success('Payment completed & booking confirmed!');
+      fetchBookings();
+    } catch (err) {
+      // toast shown
+    } finally {
+      setPayingBookingId(null);
+    }
+  };
+
+  const handleOpenInvoice = async (booking) => {
+    try {
+      const { data: invoice } = await api.get(`/invoices/booking/${booking.id}`);
+      setSelectedInvoice({
+        booking: {
+          ...booking,
+          id: booking.id,
+          total_price: invoice.total_amount,
+        },
+        payment: {
+          status: invoice.status === 'paid' ? 'completed' : 'pending',
+          payment_method: 'credit_card',
+        },
+      });
+    } catch {
+      // Fallback display if not generated yet
+      setSelectedInvoice({
+        booking,
+        payment: { status: booking.status === 'completed' ? 'completed' : 'pending' },
+      });
+    }
+  };
+
+  const handleOpenComplaint = (booking) => {
+    setComplaintBooking(booking);
+    setComplaintSubject(`Service Concern for Booking #${booking.id}`);
+    setComplaintDesc('');
+    setComplaintPriority('medium');
+  };
+
+  const handleSubmitComplaint = async (e) => {
+    e.preventDefault();
+    if (!complaintBooking || !complaintDesc.trim()) return;
+    setSubmittingComplaint(true);
+    try {
+      await api.post('/complaints/', {
+        booking_id: complaintBooking.id,
+        subject: complaintSubject.trim(),
+        description: complaintDesc.trim(),
+        priority: complaintPriority,
+      });
+      toast.success('Dispute ticket submitted. Support will review shortly.');
+      setComplaintBooking(null);
+    } catch (err) {
+      // toast shown
+    } finally {
+      setSubmittingComplaint(false);
     }
   };
 
@@ -86,12 +214,12 @@ export default function MyBookings() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-gray-900">My Service Bookings</h1>
-          <p className="text-xs text-gray-500 mt-1">Manage and monitor all your home service appointments</p>
+          <p className="text-xs text-gray-500 mt-1">Manage appointments, reschedule, settle payments and view invoices</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchBookings}
-            className="p-2 border border-gray-200 bg-white rounded-xl text-gray-600 hover:bg-gray-50 text-xs flex items-center gap-1.5"
+            className="p-2 border border-gray-200 bg-white rounded-xl text-gray-600 hover:bg-gray-50 text-xs flex items-center gap-1.5 cursor-pointer"
             title="Refresh"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
@@ -107,7 +235,7 @@ export default function MyBookings() {
 
       {/* Status Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {['all', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled'].map((st) => (
+        {['all', 'pending', 'confirmed', 'provider_assigned', 'in_progress', 'completed', 'cancelled'].map((st) => (
           <button
             key={st}
             onClick={() => setStatusFilter(st)}
@@ -145,8 +273,12 @@ export default function MyBookings() {
                   <span className="font-bold text-gray-900 text-base">
                     {b.service_name || 'Home Service'}
                   </span>
+                  <span className="text-xs font-mono text-gray-400">
+                    {b.booking_reference || `#BK-${b.id}`}
+                  </span>
                   <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
                     b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                    b.status === 'provider_assigned' ? 'bg-purple-100 text-purple-700' :
                     b.status === 'in_progress' ? 'bg-indigo-100 text-indigo-700' :
                     b.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                     b.status === 'cancelled' ? 'bg-rose-100 text-rose-700' :
@@ -171,6 +303,12 @@ export default function MyBookings() {
                   </span>
                 </div>
 
+                {b.technician_name && (
+                  <div className="text-xs text-purple-700 font-semibold bg-purple-50 px-2.5 py-1 rounded-md inline-block">
+                    Assigned Field Tech: {b.technician_name}
+                  </div>
+                )}
+
                 {b.notes && (
                   <p className="text-xs text-gray-600 bg-slate-50 p-2.5 rounded-lg border border-gray-100 max-w-xl">
                     <span className="font-semibold text-gray-700">Notes:</span> {b.notes}
@@ -178,35 +316,180 @@ export default function MyBookings() {
                 )}
               </div>
 
-              {/* Price & Actions */}
-              <div className="flex flex-col sm:flex-row md:flex-col items-end justify-between gap-4 shrink-0">
+              {/* Price & Action Buttons */}
+              <div className="flex flex-col sm:flex-row md:flex-col items-end justify-between gap-3 shrink-0">
                 <div className="text-right">
                   <span className="text-[11px] text-gray-400 uppercase font-bold">Total Price</span>
                   <div className="text-xl font-black text-gray-900">${b.total_price?.toFixed(2)}</div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {['pending', 'confirmed'].includes(b.status) && (
+                <div className="flex flex-wrap items-center gap-2 justify-end">
+                  {/* Pay Now Button for Pending Bookings */}
+                  {b.status === 'pending' && (
                     <button
-                      onClick={() => handleCancelBooking(b.id)}
-                      className="px-3.5 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                      disabled={payingBookingId === b.id}
+                      onClick={() => handleProcessPayment(b)}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shadow-sm cursor-pointer"
                     >
-                      Cancel Booking
+                      <CreditCard className="h-3.5 w-3.5" />
+                      {payingBookingId === b.id ? 'Processing...' : 'Pay Now (Demo)'}
                     </button>
                   )}
 
+                  {/* Reschedule Button */}
+                  {['pending', 'confirmed'].includes(b.status) && (
+                    <button
+                      onClick={() => handleOpenReschedule(b)}
+                      className="px-3 py-1.5 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-blue-600" /> Reschedule
+                    </button>
+                  )}
+
+                  {/* Cancel Button */}
+                  {['pending', 'confirmed'].includes(b.status) && (
+                    <button
+                      onClick={() => handleOpenCancel(b)}
+                      className="px-3 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+
+                  {/* View Invoice */}
+                  {['confirmed', 'provider_assigned', 'in_progress', 'completed'].includes(b.status) && (
+                    <button
+                      onClick={() => handleOpenInvoice(b)}
+                      className="px-3 py-1.5 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-blue-600" /> Tax Invoice
+                    </button>
+                  )}
+
+                  {/* Leave Review */}
                   {b.status === 'completed' && (
                     <button
                       onClick={() => handleOpenReview(b)}
                       className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shadow-sm cursor-pointer"
                     >
-                      <Star className="h-3.5 w-3.5 fill-white" /> Leave Review
+                      <Star className="h-3.5 w-3.5 fill-white" /> Review
                     </button>
                   )}
+
+                  {/* Report Dispute */}
+                  <button
+                    onClick={() => handleOpenComplaint(b)}
+                    className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-xs transition-colors cursor-pointer"
+                    title="Report Issue"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleBooking && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Reschedule Appointment</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Select a new date and time for booking #{rescheduleBooking.id} ({rescheduleBooking.service_name})
+            </p>
+
+            <form onSubmit={handleConfirmReschedule} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">New Date</label>
+                <input
+                  type="date"
+                  required
+                  min={new Date().toISOString().split('T')[0]}
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">New Time Slot</label>
+                <select
+                  value={newTime}
+                  onChange={(e) => setNewTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="09:00">09:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:30">11:30 AM</option>
+                  <option value="13:00">01:00 PM</option>
+                  <option value="14:30">02:30 PM</option>
+                  <option value="16:00">04:00 PM</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setRescheduleBooking(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingReschedule}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {submittingReschedule ? 'Rescheduling...' : 'Confirm Reschedule'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Modal */}
+      {cancelBooking && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Cancel Booking</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Please share the reason for cancelling booking #{cancelBooking.id}
+            </p>
+
+            <form onSubmit={handleConfirmCancel} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Reason for Cancellation</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="E.g., Schedule conflict, found alternative solution, etc."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setCancelBooking(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                >
+                  Keep Booking
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCancel}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {submittingCancel ? 'Cancelling...' : 'Confirm Cancellation'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -272,6 +555,83 @@ export default function MyBookings() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Complaint Modal */}
+      {complaintBooking && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">File Service Issue / Dispute</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Registered under HomeServe 100% Satisfaction Guarantee for booking #{complaintBooking.id}
+            </p>
+
+            <form onSubmit={handleSubmitComplaint} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Subject</label>
+                <input
+                  type="text"
+                  required
+                  value={complaintSubject}
+                  onChange={(e) => setComplaintSubject(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Priority</label>
+                <select
+                  value={complaintPriority}
+                  onChange={(e) => setComplaintPriority(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="low">Low - Minor question or feedback</option>
+                  <option value="medium">Medium - Service quality or delay</option>
+                  <option value="high">High - Incomplete work or damage</option>
+                  <option value="urgent">Urgent - Safety or emergency issue</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Description of Issue</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={complaintDesc}
+                  onChange={(e) => setComplaintDesc(e.target.value)}
+                  placeholder="Please provide details regarding what happened..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setComplaintBooking(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingComplaint}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {submittingComplaint ? 'Submitting...' : 'Submit Dispute'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Modal */}
+      {selectedInvoice && (
+        <InvoiceModal
+          booking={selectedInvoice.booking}
+          payment={selectedInvoice.payment}
+          onClose={() => setSelectedInvoice(null)}
+        />
       )}
     </div>
   );

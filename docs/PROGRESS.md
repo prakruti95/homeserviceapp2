@@ -63,7 +63,41 @@
 - ✅ **Notifications Center (`/notifications`)**: Full-page notifications manager with unread badges, mark-read, mark-all-read, and delete actions.
 - ✅ **Production Build Verification**: `npm run build` succeeds cleanly (`✓ built in 474ms`, 2154 modules transformed, zero unresolved imports or compile errors).
 
-### Phase 5: Prompt 2 Verification & Polish
+### Phase 6: Full-Stack React + FastAPI Integration (Prompt 4 Verification)
+- ✅ **Centralized Axios Client**: `frontend/src/services/api.js` configured with `VITE_API_BASE_URL` (`/api`), automatic Bearer token injection, and 401 token expiry redirect.
+- ✅ **Authentication & Session Persistence**:
+  - JWT token saved in localStorage, persisted across refreshes, and verified via `GET /api/auth/me`.
+  - Secure server-side token revocation on `POST /api/auth/logout`.
+- ✅ **Protected Routes & Role Route Guards**: Strict client-side and server-side route guarding across `SUPER_ADMIN`, `ADMIN`, `PROVIDER`, `TECHNICIAN`, and `CUSTOMER`.
+- ✅ **Dynamic Catalog & Provider Discovery**:
+  - All 8 categories and 33 services loaded dynamically from MySQL (`/services/categories`, `/services/?limit=100`).
+  - Provider list and availability loaded from `/providers/` and `/providers/{id}/availability`.
+- ✅ **Booking Creation & Coupon Validation**:
+  - Dynamic coupon validation against subtotal (`POST /api/coupons/validate`) with promo codes `WELCOME20` and `SAVE10`.
+  - Unique booking reference generation (`HS-BK-YYYYMMDD-XXXXXX`).
+  - Provider schedule overlap validation preventing double-booking (HTTP 409 Conflict).
+- ✅ **Booking Cancellation & Rescheduling**:
+  - Customer rescheduling modal calling `PATCH /api/bookings/{id}/reschedule` with conflict validation.
+  - Customer cancellation with mandatory reason via `PATCH /api/bookings/{id}/cancel`.
+- ✅ **Provider Acceptance & Technician Dispatch**:
+  - Provider order workflow (`pending` -> `confirmed`).
+  - Technician assignment modal calling `POST /api/bookings/{id}/assign` with technician list from `GET /api/technicians`.
+- ✅ **Field Technician Mobile Console**:
+  - Technician dispatches queue (`/technician/dashboard`) synced via `GET /api/technicians/me/assignments`.
+  - On-site job progression (`en_route` -> `on_site` -> `in_progress` -> `completed`).
+  - Work log verification photo uploads via `POST /api/bookings/{id}/images`.
+- ✅ **Demo Payment Processing & Automated Tax Invoicing**:
+  - Clearly labeled demo payment confirmation via `POST /api/payments/process-demo`.
+  - 10% platform commission fee deduction and 90% provider earnings allocation.
+  - Automated official tax invoice generation (`INV-YYYYMM-XXXXXX`) with subtotal, discounts, and printable receipt modal (`InvoiceModal.jsx`).
+- ✅ **Customer Reviews & Quality Complaints**:
+  - Customer star rating & feedback submission via `POST /api/reviews/` updating provider averages.
+  - Dispute ticket filing via `POST /api/complaints/` and Admin dispute resolution via `PATCH /api/complaints/{id}/status`.
+- ✅ **Automated End-to-End Workflow Verification**:
+  - `python backend/tests/test_full_workflow.py`: **100% PASS** across all 13 phases.
+  - `python backend/tests/test_backend_full.py`: **100% PASS** across all 7 architecture modules.
+  - `npm run build`: **100% PASS** (0 errors, 491ms).
+
 - ✅ **1. Realistic Home Service Imagery**:
   - Added `image_url` column in MySQL `services` and `service_categories` tables.
   - Curated and seeded high-resolution, thematic photography across all services and category headers.

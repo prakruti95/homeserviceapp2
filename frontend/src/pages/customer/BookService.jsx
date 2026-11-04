@@ -1,23 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
   Calendar, Clock, MapPin, CreditCard, ShieldCheck, CheckCircle2, 
-  ArrowLeft, FileText, UserCheck, DollarSign 
+  ArrowLeft, FileText, UserCheck, DollarSign, Tag, Check, AlertCircle 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 export default function BookService() {
   const { serviceId } = useParams();
+  const [searchParams] = useSearchParams();
+  const providerParam = searchParams.get('provider');
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const [services, setServices] = useState([]);
   const [selectedServiceId, setSelectedServiceId] = useState(serviceId || '');
   const [providers, setProviders] = useState([]);
-  const [selectedProviderId, setSelectedProviderId] = useState('');
+  const [selectedProviderId, setSelectedProviderId] = useState(providerParam || '');
+  const [providerAvailability, setProviderAvailability] = useState([]);
   
   const [scheduledDate, setScheduledDate] = useState(() => {
     const d = new Date();
@@ -30,6 +33,11 @@ export default function BookService() {
   const [zipCode, setZipCode] = useState(user?.zip_code || '94103');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('credit_card');
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -46,14 +54,17 @@ export default function BookService() {
         setServices(sList);
         if (serviceId) {
           setSelectedServiceId(serviceId);
-        } else if (sList.length > 0) {
+        } else if (sList.length > 0 && !selectedServiceId) {
           setSelectedServiceId(String(sList[0].id));
         }
 
-        const pList = provRes.data?.providers || [];
+        const rawProviders = provRes.data;
+        const pList = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
         setProviders(pList);
-        if (pList.length > 0) {
-          // Provider user_id
+        if (providerParam) {
+          setSelectedProviderId(providerParam);
+        } else if (pList.length > 0 && !selectedProviderId) {
+          // Default to first provider's user_id or id
           setSelectedProviderId(String(pList[0].user_id || pList[0].id));
         }
       } catch (err) {
@@ -63,10 +74,58 @@ export default function BookService() {
       }
     }
     loadData();
-  }, [serviceId]);
+  }, [serviceId, providerParam]);
+
+  // Load provider availability when selected provider changes
+  useEffect(() => {
+    if (!selectedProviderId) return;
+    async function loadAvailability() {
+      try {
+        const { data } = await api.get(`/providers/${selectedProviderId}/availability`);
+        setProviderAvailability(Array.isArray(data) ? data : []);
+      } catch {
+        setProviderAvailability([]);
+      }
+    }
+    loadAvailability();
+  }, [selectedProviderId]);
 
   const activeService = services.find((s) => String(s.id) === String(selectedServiceId));
-  const activeProvider = providers.find((p) => String(p.user_id || p.id) === String(selectedProviderId));
+  const activeProvider = providers.find(
+    (p) => String(p.id) === String(selectedProviderId) || String(p.user_id) === String(selectedProviderId)
+  );
+
+  const basePrice = activeService?.base_price || 99.0;
+  const discountAmount = appliedCoupon ? appliedCoupon.discount_amount : 0.0;
+  const totalPrice = Math.max(0.0, Number((basePrice - discountAmount).toFixed(2)));
+
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      toast.error('Please enter a coupon code (e.g. WELCOME20, SAVE10)');
+      return;
+    }
+    setValidatingCoupon(true);
+    try {
+      const { data } = await api.post('/coupons/validate', {
+        code,
+        service_id: selectedServiceId ? parseInt(selectedServiceId) : null,
+      });
+      setAppliedCoupon(data);
+      toast.success(`Coupon ${code} applied: $${data.discount_amount.toFixed(2)} savings!`);
+    } catch (err) {
+      setAppliedCoupon(null);
+      // toast shown by interceptor
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    toast.success('Coupon removed');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,30 +140,36 @@ export default function BookService() {
 
     setSubmitting(true);
     try {
+      const providerIdNum = activeProvider ? (activeProvider.user_id || activeProvider.id) : 2;
       const bookingPayload = {
         service_id: parseInt(selectedServiceId),
-        provider_id: selectedProviderId ? parseInt(selectedProviderId) : 2, // fallback to demo provider
+        provider_id: providerIdNum,
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime.length === 5 ? `${scheduledTime}:00` : scheduledTime,
         duration_minutes: activeService?.duration_minutes || 60,
-        total_price: activeService?.base_price || 99.0,
+        total_price: totalPrice,
         address: address.trim(),
         city: city.trim() || 'San Francisco',
         zip_code: zipCode.trim() || '94103',
-        notes: notes.trim() || 'Regular booking request',
+        notes: notes.trim() || 'Customer booking request',
+        coupon_code: appliedCoupon ? appliedCoupon.code : null,
       };
 
       const { data: booking } = await api.post('/bookings/', bookingPayload);
 
-      // Record payment
-      try {
-        await api.post('/payments/', {
-          booking_id: booking.id,
-          amount: booking.total_price,
-          payment_method: paymentMethod,
-        });
-      } catch (payErr) {
-        console.warn('Payment recording note:', payErr);
+      // If credit card selected, execute demo payment confirmation
+      if (paymentMethod === 'credit_card') {
+        try {
+          await api.post('/payments/process-demo', {
+            booking_id: booking.id,
+            amount: booking.total_price,
+            payment_method: 'credit_card',
+            demo_card_number: '4242424242424242',
+          });
+          booking.status = 'confirmed';
+        } catch (payErr) {
+          console.warn('Demo payment processing info:', payErr);
+        }
       }
 
       setSuccessBooking(booking);
@@ -131,13 +196,16 @@ export default function BookService() {
           <CheckCircle2 className="h-10 w-10" />
         </div>
         <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider">
-          Booking Confirmed
+          {successBooking.status === 'confirmed' ? 'Booking Confirmed & Settled' : 'Booking Request Placed'}
         </span>
         <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mt-3">
-          Your reservation has been scheduled!
+          Your reservation is confirmed!
         </h2>
+        <p className="text-xs text-gray-500 mt-1 font-mono">
+          Booking Ref: {successBooking.booking_reference || `#HS-BK-${successBooking.id}`}
+        </p>
         <p className="text-sm text-gray-600 mt-2 max-w-md mx-auto">
-          Booking ID #{successBooking.id} for <strong>{activeService?.name || 'Selected Service'}</strong> on{' '}
+          Service reserved for <strong>{activeService?.name || 'Selected Service'}</strong> on{' '}
           <strong>{scheduledDate}</strong> at <strong>{scheduledTime}</strong>.
         </p>
 
@@ -147,6 +215,10 @@ export default function BookService() {
             <span className="font-semibold">{activeService?.name}</span>
           </div>
           <div className="flex justify-between">
+            <span className="text-gray-500">Assigned Provider:</span>
+            <span className="font-semibold">{activeProvider?.business_name || activeProvider?.user_name || 'Certified Home Pro'}</span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-gray-500">Scheduled Date & Time:</span>
             <span className="font-semibold">{scheduledDate} at {scheduledTime}</span>
           </div>
@@ -154,13 +226,21 @@ export default function BookService() {
             <span className="text-gray-500">Service Location:</span>
             <span className="font-semibold">{address}, {city}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Total Charged:</span>
-            <span className="font-bold text-gray-900 text-sm">${successBooking.total_price?.toFixed(2)}</span>
+          {appliedCoupon && (
+            <div className="flex justify-between text-emerald-600">
+              <span>Coupon Discount ({appliedCoupon.code}):</span>
+              <span className="font-semibold">-${appliedCoupon.discount_amount?.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between pt-2 border-t border-gray-200">
+            <span className="text-gray-500 font-bold">Total Charged:</span>
+            <span className="font-black text-gray-900 text-sm">${successBooking.total_price?.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Payment Status:</span>
-            <span className="font-semibold text-emerald-600">Paid ({paymentMethod.replace('_', ' ')})</span>
+            <span className="font-semibold text-emerald-600">
+              {paymentMethod === 'credit_card' ? 'Paid via Demo Card (Instant Confirmation)' : 'Pay on Completion (Cash)'}
+            </span>
           </div>
         </div>
 
@@ -190,7 +270,7 @@ export default function BookService() {
         </Link>
         <div>
           <h1 className="text-2xl font-black text-gray-900">Schedule a Service</h1>
-          <p className="text-xs text-gray-500">Select date, time, and service details for your appointment</p>
+          <p className="text-xs text-gray-500">Select provider, preferred schedule, and service location details</p>
         </div>
       </div>
 
@@ -223,26 +303,63 @@ export default function BookService() {
             )}
           </div>
 
-          {/* 2. Schedule Date & Time */}
+          {/* 2. Provider Selection & Availability */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
               <span className="h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-bold">2</span>
+              Select Certified Provider
+            </h2>
+            
+            {providers.length > 0 ? (
+              <select
+                value={selectedProviderId}
+                onChange={(e) => setSelectedProviderId(e.target.value)}
+                className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+              >
+                {providers.map((p) => {
+                  const pVal = String(p.user_id || p.id);
+                  return (
+                    <option key={p.id} value={pVal}>
+                      {p.business_name || p.user_name || 'Verified Provider'} — ★ {p.average_rating || 4.9} ({p.service_area || 'San Francisco'})
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <div className="text-xs text-gray-500 italic">Defaulting to HomeServe Certified Dispatch Network</div>
+            )}
+
+            {activeProvider && (
+              <div className="flex items-center justify-between p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-xs text-emerald-900">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-emerald-600" />
+                  <span>Verified Partner: <strong>{activeProvider.business_name || activeProvider.user_name}</strong></span>
+                </div>
+                <span className="font-bold text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                  Available for Booking
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* 3. Schedule Date & Time */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <span className="h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-bold">3</span>
               Date & Preferred Time Slot
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Appointment Date</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    required
-                    min={new Date().toISOString().split('T')[0]}
-                    value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
+                <input
+                  type="date"
+                  required
+                  min={new Date().toISOString().split('T')[0]}
+                  value={scheduledDate}
+                  onChange={(e) => setScheduledDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
 
               <div>
@@ -263,10 +380,10 @@ export default function BookService() {
             </div>
           </div>
 
-          {/* 3. Service Location */}
+          {/* 4. Service Location */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <span className="h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-bold">3</span>
+              <span className="h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-bold">4</span>
               Service Location & Notes
             </h2>
 
@@ -325,16 +442,59 @@ export default function BookService() {
               Booking Summary
             </h3>
 
+            {/* Coupon Code Section */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-gray-700 uppercase">Promo Code / Coupon</label>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                    <Tag className="h-3.5 w-3.5" /> {appliedCoupon.code} (-${appliedCoupon.discount_amount?.toFixed(2)})
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    placeholder="WELCOME20 or SAVE10"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs uppercase focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={validatingCoupon || !couponCode.trim()}
+                    onClick={handleApplyCoupon}
+                    className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                  >
+                    {validatingCoupon ? '...' : 'Apply'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {activeService && (
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3 text-xs border-t border-gray-100 pt-3">
                 <div className="flex justify-between items-center text-gray-700">
                   <span>Base Service Fee</span>
-                  <span className="font-semibold">${activeService.base_price.toFixed(2)}</span>
+                  <span className="font-semibold">${basePrice.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-gray-700">
                   <span>Duration</span>
                   <span className="font-semibold">{activeService.duration_minutes} minutes</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between items-center text-emerald-600 font-semibold">
+                    <span>Coupon Discount</span>
+                    <span>-${discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-gray-700">
                   <span>Platform Fee</span>
                   <span className="font-semibold text-emerald-600">FREE</span>
@@ -346,7 +506,7 @@ export default function BookService() {
 
                 <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm">
                   <span className="font-bold text-gray-900">Total Price</span>
-                  <span className="text-xl font-black text-blue-600">${activeService.base_price.toFixed(2)}</span>
+                  <span className="text-xl font-black text-blue-600">${totalPrice.toFixed(2)}</span>
                 </div>
               </div>
             )}
@@ -365,7 +525,10 @@ export default function BookService() {
                     className="text-blue-600"
                   />
                   <CreditCard className="h-4 w-4 text-gray-600" />
-                  <span className="text-xs font-medium text-gray-800">Credit / Debit Card</span>
+                  <div>
+                    <span className="text-xs font-medium text-gray-800 block">Instant Card (Demo)</span>
+                    <span className="text-[10px] text-gray-400 block">Immediate booking confirmation & invoice</span>
+                  </div>
                 </label>
                 <label className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
                   <input
@@ -377,7 +540,10 @@ export default function BookService() {
                     className="text-blue-600"
                   />
                   <DollarSign className="h-4 w-4 text-gray-600" />
-                  <span className="text-xs font-medium text-gray-800">Pay Upon Completion (Cash)</span>
+                  <div>
+                    <span className="text-xs font-medium text-gray-800 block">Pay Upon Completion</span>
+                    <span className="text-[10px] text-gray-400 block">Settle via Cash or Card on site</span>
+                  </div>
                 </label>
               </div>
             </div>
@@ -387,7 +553,7 @@ export default function BookService() {
               disabled={submitting}
               className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 cursor-pointer"
             >
-              {submitting ? 'Confirming...' : 'Confirm & Schedule Booking'}
+              {submitting ? 'Confirming Reservation...' : 'Confirm & Schedule Booking'}
             </button>
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-gray-500">

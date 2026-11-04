@@ -49,11 +49,16 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // ignore network error
+    }
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
     setUser(null);
-    toast.success('Logged out');
+    toast.success('Logged out successfully');
   };
 
   return (

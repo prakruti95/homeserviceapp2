@@ -12,7 +12,7 @@ class BookingCreate(BaseModel):
     scheduled_date: date
     scheduled_time: time
     duration_minutes: int = Field(60, ge=1)
-    total_price: float = Field(..., ge=0)
+    total_price: Optional[float] = Field(0.0, ge=0)
     address: str = Field(..., min_length=1)
     city: Optional[str] = None
     zip_code: Optional[str] = None

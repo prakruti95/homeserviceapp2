@@ -15,8 +15,13 @@ export default function ProtectedRoute({ children, roles }) {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  if (roles && !roles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+  if (roles) {
+    const userRole = String(user.role || '').toLowerCase();
+    const allowed = roles.map((r) => String(r).toLowerCase());
+    const isSuperAdminPassingAdmin = allowed.includes('admin') && (userRole === 'admin' || userRole === 'super_admin');
+    if (!allowed.includes(userRole) && !isSuperAdminPassingAdmin) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return children;

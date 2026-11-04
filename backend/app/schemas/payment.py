@@ -70,7 +70,8 @@ class InvoiceResponse(BaseModel):
 
 class CouponValidateRequest(BaseModel):
     code: str
-    subtotal: float = Field(..., ge=0)
+    subtotal: Optional[float] = 0.0
+    service_id: Optional[int] = None
 
 
 class CouponValidateResponse(BaseModel):

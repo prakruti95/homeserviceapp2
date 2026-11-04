@@ -57,6 +57,7 @@ def _create_invoice_and_earnings(db: Session, payment: Payment, booking: Booking
 
 
 @router.get("", response_model=PaymentListResponse)
+@router.get("/", response_model=PaymentListResponse, include_in_schema=False)
 def list_payments(
     db: DB,
     current_user: CurrentUser,
@@ -143,6 +144,7 @@ def process_demo_payment(payload: DemoPaymentRequest, db: DB, current_user: Curr
 
 
 @router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_payment(payload: PaymentCreate, db: DB, current_user: CurrentUser) -> PaymentResponse:
     """Record a payment transaction with automated commission fee breakdown and invoice generation."""
     booking = db.query(Booking).filter(Booking.id == payload.booking_id).first()

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import DB, CurrentUser, AdminUser
 from app.models.payment import Coupon
+from app.models.service import Service
 from app.schemas.payment import (
     CouponCreate,
     CouponResponse,
@@ -24,6 +25,12 @@ def list_active_coupons(db: DB) -> list[CouponResponse]:
 def validate_coupon(payload: CouponValidateRequest, db: DB) -> CouponValidateResponse:
     """Validate a coupon code against a subtotal and compute discount."""
     code_cleaned = payload.code.strip().upper()
+    subtotal = payload.subtotal or 0.0
+    if subtotal <= 0 and payload.service_id:
+        srv = db.query(Service).filter(Service.id == payload.service_id).first()
+        if srv:
+            subtotal = srv.base_price
+
     coupon = db.query(Coupon).filter(Coupon.code == code_cleaned, Coupon.is_active == True).first()
 
     if not coupon:
@@ -31,16 +38,16 @@ def validate_coupon(payload: CouponValidateRequest, db: DB) -> CouponValidateRes
             is_valid=False,
             code=payload.code,
             discount_amount=0.0,
-            final_amount=payload.subtotal,
+            final_amount=subtotal,
             message="Invalid or expired coupon code",
         )
 
-    if payload.subtotal < coupon.min_order_amount:
+    if subtotal < coupon.min_order_amount:
         return CouponValidateResponse(
             is_valid=False,
             code=coupon.code,
             discount_amount=0.0,
-            final_amount=payload.subtotal,
+            final_amount=subtotal,
             message=f"Minimum order of ${coupon.min_order_amount:.2f} required for this coupon",
         )
 
@@ -49,19 +56,19 @@ def validate_coupon(payload: CouponValidateRequest, db: DB) -> CouponValidateRes
             is_valid=False,
             code=coupon.code,
             discount_amount=0.0,
-            final_amount=payload.subtotal,
+            final_amount=subtotal,
             message="This coupon has reached its maximum usage limit",
         )
 
     # Calculate discount
     if coupon.discount_type == "percentage":
-        discount = (payload.subtotal * coupon.discount_value) / 100.0
+        discount = (subtotal * coupon.discount_value) / 100.0
         if coupon.max_discount:
             discount = min(discount, coupon.max_discount)
     else:
-        discount = min(coupon.discount_value, payload.subtotal)
+        discount = min(coupon.discount_value, subtotal)
 
-    final_amt = max(0.0, round(payload.subtotal - discount, 2))
+    final_amt = max(0.0, round(subtotal - discount, 2))
     return CouponValidateResponse(
         is_valid=True,
         code=coupon.code,

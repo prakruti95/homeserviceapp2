@@ -17,6 +17,7 @@ router = APIRouter(prefix="/complaints", tags=["Complaints & Disputes"])
 
 
 @router.get("", response_model=list[ComplaintResponse])
+@router.get("/", response_model=list[ComplaintResponse], include_in_schema=False)
 def list_complaints(
     db: DB,
     current_user: CurrentUser,
@@ -32,6 +33,7 @@ def list_complaints(
 
 
 @router.post("", response_model=ComplaintResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ComplaintResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def file_complaint(payload: ComplaintCreate, db: DB, current_user: CurrentUser) -> ComplaintResponse:
     """File a customer service dispute or complaint ticket."""
     booking = db.query(Booking).filter(Booking.id == payload.booking_id).first()

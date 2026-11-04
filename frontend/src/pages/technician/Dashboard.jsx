@@ -1,25 +1,38 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
   Wrench, CheckSquare, Clock, MapPin, Phone, 
-  Play, CheckCircle2, AlertCircle, RefreshCw, Navigation 
+  Play, CheckCircle2, AlertCircle, RefreshCw, Navigation, 
+  Camera, Image as ImageIcon, Send 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 export default function TechnicianDashboard() {
   const { user } = useAuth();
+  const [assignments, setAssignments] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
 
+  // Photo Upload Modal State
+  const [photoBooking, setPhotoBooking] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoCaption, setPhotoCaption] = useState('');
+  const [photoType, setPhotoType] = useState('completion');
+  const [bookingImages, setBookingImages] = useState([]);
+  const [submittingPhoto, setSubmittingPhoto] = useState(false);
+
   const fetchWorkOrders = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/bookings/');
-      setBookings(data?.bookings || []);
+      const [assignRes, bookRes] = await Promise.all([
+        api.get('/technicians/me/assignments').catch(() => ({ data: [] })),
+        api.get('/bookings/'),
+      ]);
+      setAssignments(assignRes.data || []);
+      setBookings(bookRes.data?.bookings || []);
     } catch (err) {
       console.error('Failed to load technician work orders', err);
     } finally {
@@ -34,17 +47,61 @@ export default function TechnicianDashboard() {
   const handleUpdateStatus = async (bookingId, newStatus) => {
     setUpdatingId(bookingId);
     try {
-      await api.patch(`/bookings/${bookingId}/status`, { status: newStatus });
+      // Find assignment if exists
+      const matchAssign = assignments.find((a) => a.booking?.id === bookingId);
+      if (matchAssign) {
+        await api.patch(`/technicians/assignments/${matchAssign.assignment_id}/status`, {
+          status: newStatus,
+        });
+      } else {
+        await api.patch(`/bookings/${bookingId}/status`, { status: newStatus });
+      }
       toast.success(`Job status changed to ${newStatus.replace('_', ' ')}`);
       fetchWorkOrders();
     } catch (err) {
-      // toast shown by interceptor
+      // toast shown
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const activeDispatches = bookings.filter((b) => ['confirmed', 'in_progress'].includes(b.status));
+  const handleOpenPhotoModal = async (booking) => {
+    setPhotoBooking(booking);
+    setPhotoUrl('https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80');
+    setPhotoCaption('Completed installation and safety testing inspection');
+    setPhotoType('completion');
+    try {
+      const { data } = await api.get(`/bookings/${booking.id}/images`);
+      setBookingImages(data || []);
+    } catch {
+      setBookingImages([]);
+    }
+  };
+
+  const handleUploadPhoto = async (e) => {
+    e.preventDefault();
+    if (!photoBooking || !photoUrl.trim()) return;
+    setSubmittingPhoto(true);
+    try {
+      await api.post(`/bookings/${photoBooking.id}/images`, {
+        image_url: photoUrl.trim(),
+        caption: photoCaption.trim() || 'Work site photo log',
+        image_type: photoType,
+      });
+      toast.success('Work verification photo attached!');
+      const { data } = await api.get(`/bookings/${photoBooking.id}/images`);
+      setBookingImages(data || []);
+      setPhotoCaption('');
+    } catch (err) {
+      // toast shown
+    } finally {
+      setSubmittingPhoto(false);
+    }
+  };
+
+  const activeDispatches = bookings.filter((b) => 
+    ['confirmed', 'provider_assigned', 'in_progress'].includes(b.status)
+  );
   const completedToday = bookings.filter((b) => b.status === 'completed');
 
   if (loading) {
@@ -65,7 +122,7 @@ export default function TechnicianDashboard() {
           </span>
           <h1 className="text-3xl font-black mt-2">Active Field Dispatches</h1>
           <p className="mt-1 text-slate-300 text-xs max-w-lg">
-            Welcome, <strong>{user?.full_name}</strong>. Update work order progress, verify customer addresses, and complete on-site services.
+            Welcome, <strong>{user?.full_name}</strong>. Update work order progress, verify customer addresses, upload work log photos, and complete on-site services.
           </p>
         </div>
         <button
@@ -131,8 +188,12 @@ export default function TechnicianDashboard() {
                     <span className="font-bold text-gray-900 text-base">
                       #{b.id} {b.service_name}
                     </span>
+                    <span className="text-xs font-mono text-gray-400">
+                      {b.booking_reference || `#BK-${b.id}`}
+                    </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                       b.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                      b.status === 'provider_assigned' ? 'bg-purple-100 text-purple-700' :
                       b.status === 'in_progress' ? 'bg-indigo-100 text-indigo-700' :
                       b.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                       b.status === 'cancelled' ? 'bg-rose-100 text-rose-700' :
@@ -164,24 +225,32 @@ export default function TechnicianDashboard() {
                 </div>
 
                 {/* Technician Actions */}
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <a
                     href={`https://maps.google.com/?q=${encodeURIComponent(b.address + ', ' + b.city)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2.5 border border-gray-200 text-gray-600 hover:bg-gray-100 rounded-xl text-xs flex items-center gap-1.5"
+                    className="p-2 border border-gray-200 text-gray-600 hover:bg-gray-100 rounded-xl text-xs flex items-center gap-1"
                     title="Open Navigation"
                   >
-                    <Navigation className="h-4 w-4 text-blue-600" /> Navigate
+                    <Navigation className="h-3.5 w-3.5 text-blue-600" /> Maps
                   </a>
 
-                  {b.status === 'confirmed' && (
+                  {/* Photo Log Button */}
+                  <button
+                    onClick={() => handleOpenPhotoModal(b)}
+                    className="px-3 py-1.5 border border-purple-200 text-purple-700 hover:bg-purple-50 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Camera className="h-3.5 w-3.5" /> Photo Log
+                  </button>
+
+                  {['confirmed', 'provider_assigned'].includes(b.status) && (
                     <button
                       disabled={updatingId === b.id}
                       onClick={() => handleUpdateStatus(b.id, 'in_progress')}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Play className="h-3.5 w-3.5 fill-white" /> Start Job
+                      <Play className="h-3.5 w-3.5 fill-white" /> Start Service
                     </button>
                   )}
 
@@ -189,9 +258,9 @@ export default function TechnicianDashboard() {
                     <button
                       disabled={updatingId === b.id}
                       onClick={() => handleUpdateStatus(b.id, 'completed')}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
-                      <CheckCircle2 className="h-4 w-4" /> Finish & Sign Off
+                      <CheckCircle2 className="h-4 w-4" /> Sign Off & Complete
                     </button>
                   )}
 
@@ -206,6 +275,95 @@ export default function TechnicianDashboard() {
           </div>
         )}
       </div>
+
+      {/* Photo Log Modal */}
+      {photoBooking && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Camera className="h-5 w-5 text-purple-600" /> Work Verification & Photo Log
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Booking #{photoBooking.id} — {photoBooking.service_name}
+            </p>
+
+            {/* Existing Images Gallery */}
+            {bookingImages.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <span className="text-xs font-bold text-gray-700 block">Existing Photo Logs ({bookingImages.length}):</span>
+                <div className="grid grid-cols-2 gap-3">
+                  {bookingImages.map((img) => (
+                    <div key={img.id} className="relative rounded-xl overflow-hidden border border-gray-200 bg-slate-50">
+                      <img src={img.image_url} alt={img.caption || 'Work log'} className="w-full h-28 object-cover" />
+                      <div className="p-2 text-[11px] text-gray-700 font-medium">
+                        {img.caption || 'Verification photo'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add New Photo Form */}
+            <form onSubmit={handleUploadPhoto} className="mt-5 space-y-4 pt-4 border-t border-gray-100">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Photo URL</label>
+                <input
+                  type="url"
+                  required
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Photo Stage</label>
+                  <select
+                    value={photoType}
+                    onChange={(e) => setPhotoType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="before">Before Work</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completion">Completion / Signoff</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Caption</label>
+                  <input
+                    type="text"
+                    value={photoCaption}
+                    onChange={(e) => setPhotoCaption(e.target.value)}
+                    placeholder="Inspection completed..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setPhotoBooking(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingPhoto}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {submittingPhoto ? 'Uploading...' : 'Save Photo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

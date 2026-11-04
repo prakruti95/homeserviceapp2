@@ -26,6 +26,7 @@ def _enrich(review: Review) -> ReviewDetailResponse:
 
 
 @router.get("", response_model=ReviewListResponse)
+@router.get("/", response_model=ReviewListResponse, include_in_schema=False)
 def list_reviews(
     db: DB,
     skip: int = Query(0, ge=0),
@@ -58,6 +59,7 @@ def get_review(review_id: int, db: DB) -> ReviewDetailResponse:
 
 
 @router.post("", response_model=ReviewDetailResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ReviewDetailResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_review(payload: ReviewCreate, db: DB, current_user: CurrentUser) -> ReviewDetailResponse:
     """Create a review for a completed booking (customer only)."""
     booking = db.query(Booking).filter(Booking.id == payload.booking_id).first()
