@@ -81,15 +81,15 @@ export default function AdminDashboard() {
         }));
 
       const mergedStats = {
-        total_users: allUsers.length,
-        total_customers: allUsers.filter((u) => u.role === 'customer').length,
-        total_providers: providersList.length,
-        verified_providers: providersList.filter((p) => p.is_verified).length,
-        total_technicians: allUsers.filter((u) => u.role === 'technician').length,
-        total_bookings: allBookings.length,
-        total_revenue: grossRevenue,
-        platform_commission: commission,
         ...(serverStats || {}),
+        total_users: Math.max(allUsers.length, serverStats?.total_users || 0),
+        total_customers: Math.max(allUsers.filter((u) => u.role === 'customer').length, serverStats?.total_customers || 0),
+        total_providers: Math.max(providersList.length, serverStats?.total_providers || 0),
+        verified_providers: providersList.filter((p) => p.is_verified).length,
+        total_technicians: Math.max(allUsers.filter((u) => u.role === 'technician').length, serverStats?.total_technicians || 0),
+        total_bookings: Math.max(allBookings.length, serverStats?.total_bookings || 0),
+        total_revenue: Math.max(grossRevenue, serverStats?.total_revenue || 0),
+        platform_commission: commission,
       };
 
       setStats(mergedStats);

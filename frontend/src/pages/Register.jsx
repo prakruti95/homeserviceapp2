@@ -5,7 +5,7 @@ import { User, Briefcase, Mail, Lock, Phone, MapPin, ArrowRight } from 'lucide-r
 import toast from 'react-hot-toast';
 
 export default function Register({ defaultRole }) {
-  const { register } = useAuth();
+  const { register, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -40,8 +40,22 @@ export default function Register({ defaultRole }) {
         ...formData,
         role,
       });
-      // Redirect to login page and pre-fill email
-      navigate('/login', { state: { registeredEmail: formData.email.trim() } });
+      // Seamlessly log the user in immediately so they never get stuck on login
+      try {
+        const loggedUser = await login(formData.email, formData.password);
+        const r = loggedUser?.role?.toLowerCase();
+        if (r === 'admin' || r === 'super_admin') {
+          navigate('/admin/dashboard');
+        } else if (r === 'provider') {
+          navigate('/provider/dashboard');
+        } else if (r === 'technician') {
+          navigate('/technician/dashboard');
+        } else {
+          navigate('/customer/dashboard');
+        }
+      } catch {
+        navigate('/login', { state: { registeredEmail: formData.email.trim() } });
+      }
     } catch (err) {
       // toast shown by register function
     } finally {

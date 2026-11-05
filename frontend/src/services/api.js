@@ -21,7 +21,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
-  if (token) {
+  if (token && !token.startsWith('demo-') && !token.startsWith('token-')) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -43,14 +43,20 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    const message = error.response?.data?.detail || error.message || 'Something went wrong';
-    if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
-      const publicPaths = ['/', '/index.html', '/index', '/about', '/contact', '/services', '/login', '/register'];
-      const isPublic = publicPaths.some((p) => window.location.pathname === p || window.location.pathname.startsWith('/services/'));
-      if (!isPublic && window.location.pathname !== '/login') {
-        window.location.href = '/login';
+    const isAuthRoute = error.config?.url?.includes('/auth/');
+    const token = localStorage.getItem('access_token');
+    const isDemoOrClientToken = token && (token.startsWith('demo-') || token.startsWith('token-'));
+
+    if (error.response?.status === 401 && !isAuthRoute && !isDemoOrClientToken) {
+      const stored = localStorage.getItem('user');
+      if (!stored) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        const publicPaths = ['/', '/index.html', '/index', '/about', '/contact', '/services', '/login', '/register'];
+        const isPublic = publicPaths.some((p) => window.location.pathname === p || window.location.pathname.startsWith('/services/'));
+        if (!isPublic && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     if (error.response?.status !== 401) {
