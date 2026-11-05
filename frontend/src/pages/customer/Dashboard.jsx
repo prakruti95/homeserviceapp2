@@ -10,6 +10,13 @@ import {
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DemoPaymentModal from '../../components/DemoPaymentModal';
 import { getClientBookings } from '../../services/bookingStorage';
+import { fallbackCategories } from '../../data/catalog';
+
+const FALLBACK_TOP_PROVIDERS = [
+  { id: 2, user_id: 2, business_name: 'Apex Home Solutions', user_name: 'Apex Home Solutions', average_rating: 4.9, hourly_rate: 65 },
+  { id: 102, user_id: 102, business_name: 'VoltSmart Electrical Pros', user_name: 'VoltSmart Electrical', average_rating: 4.95, hourly_rate: 75 },
+  { id: 103, user_id: 103, business_name: 'ProClean Deep Cleaning Co.', user_name: 'ProClean Co.', average_rating: 4.88, hourly_rate: 55 },
+];
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
@@ -28,10 +35,11 @@ export default function CustomerDashboard() {
         api.get('/providers/').catch(() => ({ data: [] })),
       ]);
       serverBookings = bookRes.data?.bookings || [];
-      setCategories(catRes.data?.length > 0 ? catRes.data : []);
+      const cats = catRes.data?.length > 0 ? catRes.data : fallbackCategories;
+      setCategories(cats);
       const rawProviders = provRes.data;
       const pList = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
-      setTopProviders(pList.slice(0, 3));
+      setTopProviders(pList.length > 0 ? pList.slice(0, 3) : FALLBACK_TOP_PROVIDERS);
 
       // Merge server with client storage
       const clientBookings = getClientBookings(user?.email);
@@ -137,7 +145,7 @@ export default function CustomerDashboard() {
           </div>
           <div>
             <div className="text-2xl font-black text-purple-600">
-              ${completedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0).toFixed(0)}
+              ${completedBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0).toFixed(0)}
             </div>
             <div className="text-[11px] text-gray-500 font-medium">Total Settled</div>
           </div>

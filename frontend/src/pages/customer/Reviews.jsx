@@ -1,25 +1,47 @@
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, ThumbsUp } from 'lucide-react';
+import { Star, MessageSquare, ThumbsUp, ShieldCheck, User } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { getClientReviews } from '../../services/reviewStorage';
 
 export default function CustomerReviews() {
+  const { user } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadReviews() {
       try {
-        const { data } = await api.get('/reviews/');
-        setReviews(data?.reviews || []);
+        let serverReviews = [];
+        try {
+          const { data } = await api.get('/reviews/');
+          serverReviews = data?.reviews || [];
+        } catch {
+          // api fallback
+        }
+
+        const clientReviews = getClientReviews(user?.email);
+        const map = new Map();
+        clientReviews.forEach((r) => map.set(String(r.id), r));
+        serverReviews.forEach((r) => {
+          const existing = map.get(String(r.id));
+          map.set(String(r.id), { ...existing, ...r });
+        });
+
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+        );
+        setReviews(merged);
       } catch (err) {
         console.error('Failed to load reviews', err);
+        setReviews(getClientReviews(user?.email));
       } finally {
         setLoading(false);
       }
     }
     loadReviews();
-  }, []);
+  }, [user]);
 
   return (
     <div className="space-y-6">
@@ -64,9 +86,9 @@ export default function CustomerReviews() {
               <p className="text-sm text-gray-700 italic">"{r.comment}"</p>
 
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                <span>Verified Customer</span>
+                <span className="font-semibold text-gray-700">{r.customer_name || 'Verified Customer'}</span>
                 <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                  <ThumbsUp className="h-3 w-3" /> Verified Booking #{r.booking_id}
+                  <ThumbsUp className="h-3 w-3" /> {r.service_name ? r.service_name : `Booking #${r.booking_id}`}
                 </span>
               </div>
             </div>

@@ -11,7 +11,9 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import InvoiceModal from '../../components/InvoiceModal';
 import DemoPaymentModal from '../../components/DemoPaymentModal';
-import { getClientBookings } from '../../services/bookingStorage';
+import { getClientBookings, updateClientBooking } from '../../services/bookingStorage';
+import { saveClientComplaint } from '../../services/complaintStorage';
+import { saveClientReview } from '../../services/reviewStorage';
 
 export default function MyBookings() {
   const { user } = useAuth();
@@ -96,21 +98,25 @@ export default function MyBookings() {
 
   const handleConfirmReschedule = async (e) => {
     e.preventDefault();
-    if (!rescheduleBooking) return;
+    if (!rescheduleBooking || !newDate) return;
     setSubmittingReschedule(true);
+    const timeFmt = newTime.length === 5 ? `${newTime}:00` : newTime;
     try {
-      const timeFmt = newTime.length === 5 ? `${newTime}:00` : newTime;
       await api.patch(`/bookings/${rescheduleBooking.id}/reschedule`, {
+        scheduled_date: newDate,
+        scheduled_time: timeFmt,
+      });
+    } catch (err) {
+      console.warn('Server reschedule failed, using client storage fallback', err);
+    } finally {
+      updateClientBooking(rescheduleBooking.id, {
         scheduled_date: newDate,
         scheduled_time: timeFmt,
       });
       toast.success('Booking successfully rescheduled');
       setRescheduleBooking(null);
-      fetchBookings();
-    } catch (err) {
-      // toast shown by interceptor
-    } finally {
       setSubmittingReschedule(false);
+      fetchBookings();
     }
   };
 
@@ -123,17 +129,22 @@ export default function MyBookings() {
     e.preventDefault();
     if (!cancelBooking) return;
     setSubmittingCancel(true);
+    const reason = cancelReason.trim() || 'Cancelled by customer';
     try {
       await api.patch(`/bookings/${cancelBooking.id}/cancel`, {
-        cancellation_reason: cancelReason.trim() || 'Cancelled by customer',
+        cancellation_reason: reason,
+      });
+    } catch (err) {
+      console.warn('Server cancel failed, using client storage fallback', err);
+    } finally {
+      updateClientBooking(cancelBooking.id, {
+        status: 'cancelled',
+        cancellation_reason: reason,
       });
       toast.success('Booking cancelled successfully');
       setCancelBooking(null);
-      fetchBookings();
-    } catch (err) {
-      // toast shown by interceptor
-    } finally {
       setSubmittingCancel(false);
+      fetchBookings();
     }
   };
 
@@ -196,11 +207,23 @@ export default function MyBookings() {
         description: complaintDesc.trim(),
         priority: complaintPriority,
       });
+    } catch (err) {
+      console.warn('Server complaint failed, saving to client dispute storage', err);
+    } finally {
+      saveClientComplaint(
+        {
+          booking_id: complaintBooking.id,
+          booking_reference: complaintBooking.booking_reference,
+          service_name: complaintBooking.service_name,
+          provider_name: complaintBooking.provider_name,
+          subject: complaintSubject.trim(),
+          description: complaintDesc.trim(),
+          priority: complaintPriority,
+        },
+        user
+      );
       toast.success('Dispute ticket submitted. Support will review shortly.');
       setComplaintBooking(null);
-    } catch (err) {
-      // toast shown
-    } finally {
       setSubmittingComplaint(false);
     }
   };
@@ -215,19 +238,34 @@ export default function MyBookings() {
     e.preventDefault();
     if (!reviewBooking) return;
     setSubmittingReview(true);
+    const rNum = Number(rating);
     try {
       await api.post('/reviews/', {
         booking_id: reviewBooking.id,
-        rating: Number(rating),
+        rating: rNum,
         comment: comment.trim(),
+      });
+    } catch (err) {
+      console.warn('Server review failed, saving to client review storage', err);
+    } finally {
+      saveClientReview(
+        {
+          booking_id: reviewBooking.id,
+          provider_name: reviewBooking.provider_name,
+          service_name: reviewBooking.service_name,
+          rating: rNum,
+          comment: comment.trim(),
+        },
+        user
+      );
+      updateClientBooking(reviewBooking.id, {
+        has_review: true,
+        rating: rNum,
       });
       toast.success('Thank you! Your review has been submitted.');
       setReviewBooking(null);
-      fetchBookings();
-    } catch (err) {
-      // toast shown by interceptor
-    } finally {
       setSubmittingReview(false);
+      fetchBookings();
     }
   };
 

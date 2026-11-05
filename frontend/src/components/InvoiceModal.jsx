@@ -88,8 +88,8 @@ export default function InvoiceModal({ booking, payment, onClose }) {
                   <div className="text-[11px] text-gray-400 font-normal">Labor, safety inspection & tools included</div>
                 </td>
                 <td className="py-3 text-center text-gray-600">{booking.duration_minutes || 60} mins</td>
-                <td className="py-3 text-right text-gray-600">${(booking.total_price || 0).toFixed(2)}</td>
-                <td className="py-3 text-right font-bold text-gray-900">${(booking.total_price || 0).toFixed(2)}</td>
+                <td className="py-3 text-right text-gray-600">${Number(booking.total_price || 0).toFixed(2)}</td>
+                <td className="py-3 text-right font-bold text-gray-900">${Number(booking.total_price || 0).toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -100,7 +100,7 @@ export default function InvoiceModal({ booking, payment, onClose }) {
           <div className="w-64 space-y-2">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal:</span>
-              <span className="font-semibold">${(booking.total_price || 0).toFixed(2)}</span>
+              <span className="font-semibold">${Number(booking.total_price || 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Platform Service Fee:</span>
@@ -112,7 +112,7 @@ export default function InvoiceModal({ booking, payment, onClose }) {
             </div>
             <div className="flex justify-between text-sm font-black text-gray-900 pt-2 border-t border-gray-100">
               <span>Total Paid:</span>
-              <span className="text-blue-600">${(booking.total_price || 0).toFixed(2)}</span>
+              <span className="text-blue-600">${Number(booking.total_price || 0).toFixed(2)}</span>
             </div>
             {payment?.transaction_id && (
               <div className="text-[11px] text-gray-400 text-right pt-1 font-mono">

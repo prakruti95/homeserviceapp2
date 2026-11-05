@@ -22,7 +22,7 @@ export default function ProviderEarnings() {
   }, []);
 
   const completed = bookings.filter((b) => b.status === 'completed');
-  const grossEarnings = completed.reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const grossEarnings = completed.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
   const platformFee = grossEarnings * 0.10; // 10% platform fee
   const netEarnings = grossEarnings - platformFee;
 

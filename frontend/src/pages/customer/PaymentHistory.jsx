@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { DollarSign, FileText, CheckCircle2, Clock, ShieldCheck, Download, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import InvoiceModal from '../../components/InvoiceModal';
+import { getClientBookings } from '../../services/bookingStorage';
 
 export default function PaymentHistory() {
+  const { user } = useAuth();
   const [payments, setPayments] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,12 +16,59 @@ export default function PaymentHistory() {
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      const [payRes, bookRes] = await Promise.all([
-        api.get('/payments/'),
-        api.get('/bookings/'),
-      ]);
-      setPayments(payRes.data?.payments || []);
-      setBookings(bookRes.data?.bookings || []);
+      let serverPayments = [];
+      let serverBookings = [];
+
+      try {
+        const [payRes, bookRes] = await Promise.all([
+          api.get('/payments/').catch(() => ({ data: { payments: [] } })),
+          api.get('/bookings/').catch(() => ({ data: { bookings: [] } })),
+        ]);
+        serverPayments = payRes.data?.payments || [];
+        serverBookings = bookRes.data?.bookings || [];
+      } catch (e) {
+        console.warn('API payments offline, deriving from bookings and client storage');
+      }
+
+      const clientBookings = getClientBookings(user?.email);
+
+      // Merge bookings
+      const bMap = new Map();
+      clientBookings.forEach((b) => bMap.set(String(b.id), b));
+      serverBookings.forEach((b) => {
+        const existing = bMap.get(String(b.id));
+        bMap.set(String(b.id), { ...existing, ...b });
+      });
+      const allBookings = Array.from(bMap.values());
+      setBookings(allBookings);
+
+      // Build payments from server and client bookings
+      const pMap = new Map();
+      serverPayments.forEach((p) => pMap.set(String(p.id || p.transaction_id || p.booking_id), p));
+
+      allBookings.forEach((b) => {
+        const isPaid = ['completed', 'paid'].includes(b.payment_status) || b.status === 'completed' || b.transaction_id;
+        if (isPaid) {
+          const key = String(b.transaction_id || `TXN-HS-${b.id}`);
+          if (!pMap.has(key)) {
+            pMap.set(key, {
+              id: b.id,
+              booking_id: b.id,
+              amount: Number(b.total_price || 0),
+              payment_method: b.payment_method || 'credit_card',
+              status: 'paid',
+              transaction_id: b.transaction_id || `TXN-HS-${b.id}`,
+              created_at: b.created_at || new Date().toISOString(),
+              service_name: b.service_name || 'Home Maintenance Service',
+            });
+          }
+        }
+      });
+
+      const mergedPayments = Array.from(pMap.values()).sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+      setPayments(mergedPayments);
     } catch (err) {
       console.error('Failed to load payment history', err);
     } finally {
@@ -32,7 +82,7 @@ export default function PaymentHistory() {
 
   const totalSpent = payments
     .filter((p) => ['completed', 'paid'].includes(p.status))
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const handleOpenInvoice = (payment) => {
     const matchedBooking = bookings.find((b) => b.id === payment.booking_id) || {

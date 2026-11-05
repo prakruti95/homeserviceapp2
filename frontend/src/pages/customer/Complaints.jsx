@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { getClientComplaints, saveClientComplaint, updateClientComplaint } from '../../services/complaintStorage';
+import { getClientBookings } from '../../services/bookingStorage';
 
 export default function CustomerComplaints() {
   const { user } = useAuth();
@@ -34,19 +36,50 @@ export default function CustomerComplaints() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [compRes, bookRes] = await Promise.all([
-        api.get('/complaints/').catch(() => ({ data: [] })),
-        api.get('/bookings/').catch(() => ({ data: { bookings: [] } })),
-      ]);
-      const cList = Array.isArray(compRes.data) ? compRes.data : [];
-      setComplaints(cList);
-      const bList = bookRes.data?.bookings || [];
-      setBookings(bList);
-      if (bList.length > 0 && !selectedBookingId) {
-        setSelectedBookingId(String(bList[0].id));
+      let serverComplaints = [];
+      let serverBookings = [];
+      try {
+        const [compRes, bookRes] = await Promise.all([
+          api.get('/complaints/').catch(() => ({ data: [] })),
+          api.get('/bookings/').catch(() => ({ data: { bookings: [] } })),
+        ]);
+        serverComplaints = Array.isArray(compRes.data) ? compRes.data : [];
+        serverBookings = bookRes.data?.bookings || [];
+      } catch (e) {
+        console.warn('API /complaints/ offline, using client storage');
+      }
+
+      // Merge complaints
+      const clientComplaints = getClientComplaints(user?.email);
+      const cMap = new Map();
+      clientComplaints.forEach((c) => cMap.set(String(c.id), c));
+      serverComplaints.forEach((c) => {
+        const existing = cMap.get(String(c.id));
+        cMap.set(String(c.id), { ...existing, ...c });
+      });
+      const mergedComplaints = Array.from(cMap.values()).sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+      setComplaints(mergedComplaints);
+
+      // Merge bookings
+      const clientBookings = getClientBookings(user?.email);
+      const bMap = new Map();
+      clientBookings.forEach((b) => bMap.set(String(b.id), b));
+      serverBookings.forEach((b) => {
+        const existing = bMap.get(String(b.id));
+        bMap.set(String(b.id), { ...existing, ...b });
+      });
+      const mergedBookings = Array.from(bMap.values());
+      setBookings(mergedBookings);
+
+      if (mergedBookings.length > 0 && !selectedBookingId) {
+        setSelectedBookingId(String(mergedBookings[0].id));
       }
     } catch (err) {
       console.error('Failed to load disputes data', err);
+      setComplaints(getClientComplaints(user?.email));
+      setBookings(getClientBookings(user?.email));
     } finally {
       setLoading(false);
     }
@@ -54,7 +87,7 @@ export default function CustomerComplaints() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user]);
 
   const handleFileComplaint = async (e) => {
     e.preventDefault();
@@ -67,6 +100,7 @@ export default function CustomerComplaints() {
       return;
     }
     setSubmitting(true);
+    const chosenBooking = bookings.find((b) => String(b.id) === String(selectedBookingId));
     try {
       await api.post('/complaints/', {
         booking_id: parseInt(selectedBookingId),
@@ -74,14 +108,26 @@ export default function CustomerComplaints() {
         description: description.trim(),
         priority: issuePriority,
       });
+    } catch (err) {
+      console.warn('Server complaint failed, saving to local dispute storage', err);
+    } finally {
+      saveClientComplaint(
+        {
+          booking_id: parseInt(selectedBookingId),
+          booking_reference: chosenBooking?.booking_reference || `HS-BK-${selectedBookingId}`,
+          service_name: chosenBooking?.service_name || 'Home Maintenance Service',
+          provider_name: chosenBooking?.provider_name || 'Apex Home Solutions',
+          subject: issueSubject.trim(),
+          description: description.trim(),
+          priority: issuePriority,
+        },
+        user
+      );
       toast.success('Dispute ticket registered. Support will follow up.');
       setShowNewModal(false);
       setDescription('');
-      fetchData();
-    } catch (err) {
-      // toast shown
-    } finally {
       setSubmitting(false);
+      fetchData();
     }
   };
 
@@ -100,13 +146,17 @@ export default function CustomerComplaints() {
         status: resolutionStatus,
         resolution_notes: resolutionNotes.trim(),
       });
+    } catch (err) {
+      console.warn('Server resolve failed, updating client storage', err);
+    } finally {
+      updateClientComplaint(resolveComplaint.id, {
+        status: resolutionStatus,
+        resolution_notes: resolutionNotes.trim(),
+      });
       toast.success('Dispute status and resolution updated!');
       setResolveComplaint(null);
-      fetchData();
-    } catch (err) {
-      // toast shown
-    } finally {
       setResolving(false);
+      fetchData();
     }
   };
 

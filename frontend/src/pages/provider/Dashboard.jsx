@@ -63,7 +63,7 @@ export default function ProviderDashboard() {
   const activeDispatches = bookings.filter((b) => ['confirmed', 'provider_assigned', 'in_progress'].includes(b.status));
   const completed = bookings.filter((b) => b.status === 'completed');
 
-  const grossEarnings = completed.reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const grossEarnings = completed.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
   const platformCommission = Math.round(grossEarnings * 0.10 * 100) / 100;
   const netEarnings = Math.round((grossEarnings - platformCommission) * 100) / 100;
 
