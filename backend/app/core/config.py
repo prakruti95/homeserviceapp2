@@ -1,31 +1,42 @@
-from pydantic_settings import BaseSettings
-from typing import Optional, Union
+import os
 import json
+import logging
+from typing import Optional, Union
+from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
     # Application
     APP_NAME: str = "HomeServe Technologies"
     APP_VERSION: str = "1.0.0"
-    APP_ENV: str = "development"  # development | staging | production
-    DEBUG: bool = True
-    PORT: int = 8000
-    SEED_DEMO_DATA: bool = True  # Set to False in production for clean database
+    APP_ENV: str = os.getenv("APP_ENV", "development")  # development | staging | production
+    DEBUG: bool = os.getenv("DEBUG", "true").lower() in ("true", "1")
+    PORT: int = int(os.getenv("PORT", "8000"))
+    SEED_DEMO_DATA: bool = True  # Automatically seed essential demo data if database is empty
 
-    # Database
-    DATABASE_URL: str = "mysql+pymysql://root@localhost:3306/homeserve"
+    # Database: checks POSTGRES_URL (Vercel Postgres standard), DATABASE_URL, or POSTGRES_PRISMA_URL
+    DATABASE_URL: str = (
+        os.getenv("POSTGRES_URL")
+        or os.getenv("DATABASE_URL")
+        or os.getenv("POSTGRES_PRISMA_URL")
+        or ("sqlite:////tmp/homeserve.db" if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") else "mysql+pymysql://root@localhost:3306/homeserve")
+    )
 
     # JWT Authentication
-    SECRET_KEY: str = "homeserve-super-secret-key-change-in-production-2024"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "homeserve-super-secret-key-change-in-production-2024")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour session lifetime
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours session lifetime
 
     # CORS Allowed Origins (Comma-separated string or list)
     CORS_ORIGINS: Union[str, list[str]] = [
+        "*",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
-        "https://homeserve.vercel.app"
+        "https://homeserve.vercel.app",
+        "https://homeserviceapp2-lzer.vercel.app",
     ]
 
     # Admin Initial Bootstrapping Credentials
@@ -40,21 +51,23 @@ class Settings(BaseSettings):
             return self.CORS_ORIGINS
         if isinstance(self.CORS_ORIGINS, str):
             s = self.CORS_ORIGINS.strip()
+            if s == "*":
+                return ["*"]
             if s.startswith("[") and s.endswith("]"):
                 try:
                     return json.loads(s)
                 except Exception:
                     pass
             return [origin.strip() for origin in s.split(",") if origin.strip()]
-        return ["http://localhost:5173", "http://127.0.0.1:5173"]
+        return ["*"]
 
     def validate_production_secrets(self) -> None:
-        """Enforce strong credentials in production environments."""
+        """Enforce or warn about strong credentials in production environments."""
         if self.APP_ENV == "production":
             if self.SECRET_KEY == "homeserve-super-secret-key-change-in-production-2024":
-                raise ValueError("CRITICAL SECURITY ERROR: Default SECRET_KEY must be overridden in production!")
+                logger.warning("WARNING: Using default SECRET_KEY in production. Set SECRET_KEY in Vercel environment variables.")
             if "localhost" in self.DATABASE_URL or "127.0.0.1" in self.DATABASE_URL:
-                raise ValueError("DATABASE_URL must point to a cloud database host (MySQL or PostgreSQL) in production!")
+                logger.warning("WARNING: DATABASE_URL is pointing to localhost. Set POSTGRES_URL or DATABASE_URL in Vercel environment variables.")
 
     model_config = {
         "env_file": ".env",

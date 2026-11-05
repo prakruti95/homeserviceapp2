@@ -50,7 +50,8 @@ def register(payload: UserCreate, db: DB) -> TokenResponse:
 @router.post("/login", response_model=TokenResponse)
 def login(payload: UserLogin, db: DB) -> TokenResponse:
     """Authenticate and return an access token."""
-    user = db.query(User).filter(User.email == payload.email).first()
+    login_identifier = (payload.email or payload.username or "").strip().lower()
+    user = db.query(User).filter(User.email == login_identifier).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
