@@ -10,6 +10,8 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DemoPaymentModal from '../../components/DemoPaymentModal';
 import { saveClientBooking } from '../../services/bookingStorage';
+import { getClientServices } from '../../services/catalogStorage';
+import { getClientUsers } from '../../services/userStorage';
 
 export default function BookService() {
   const { serviceId } = useParams();
@@ -18,10 +20,20 @@ export default function BookService() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [services, setServices] = useState([]);
-  const [selectedServiceId, setSelectedServiceId] = useState(serviceId || '');
-  const [providers, setProviders] = useState([]);
-  const [selectedProviderId, setSelectedProviderId] = useState(providerParam || '');
+  const [services, setServices] = useState(getClientServices);
+  const [selectedServiceId, setSelectedServiceId] = useState(() => {
+    if (serviceId) return String(serviceId);
+    const initialServices = getClientServices();
+    return initialServices.length > 0 ? String(initialServices[0].id) : '1';
+  });
+  const [providers, setProviders] = useState(() => {
+    return getClientUsers().filter((u) => u.role === 'provider');
+  });
+  const [selectedProviderId, setSelectedProviderId] = useState(() => {
+    if (providerParam) return String(providerParam);
+    const initialProviders = getClientUsers().filter((u) => u.role === 'provider');
+    return initialProviders.length > 0 ? String(initialProviders[0].id) : '2';
+  });
   const [providerAvailability, setProviderAvailability] = useState([]);
   
   const [scheduledDate, setScheduledDate] = useState(() => {
@@ -49,29 +61,53 @@ export default function BookService() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [srvRes, provRes] = await Promise.all([
-          api.get('/services/?limit=100'),
-          api.get('/providers/'),
-        ]);
-        const sList = srvRes.data?.services || [];
+        let sList = [];
+        let pList = [];
+        try {
+          const [srvRes, provRes] = await Promise.all([
+            api.get('/services/?limit=100'),
+            api.get('/providers/'),
+          ]);
+          if (Array.isArray(srvRes.data?.services) && srvRes.data.services.length > 0) {
+            sList = srvRes.data.services;
+          }
+          const rawProviders = provRes.data;
+          const parsedProv = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
+          if (parsedProv.length > 0) {
+            pList = parsedProv;
+          }
+        } catch {
+          // offline fallback
+        }
+
+        if (sList.length === 0) {
+          sList = getClientServices();
+        }
         setServices(sList);
+
+        if (pList.length === 0) {
+          pList = getClientUsers().filter((u) => u.role === 'provider');
+        }
+        setProviders(pList);
+
         if (serviceId) {
-          setSelectedServiceId(serviceId);
+          setSelectedServiceId(String(serviceId));
         } else if (sList.length > 0 && !selectedServiceId) {
           setSelectedServiceId(String(sList[0].id));
         }
 
-        const rawProviders = provRes.data;
-        const pList = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
-        setProviders(pList);
         if (providerParam) {
-          setSelectedProviderId(providerParam);
+          setSelectedProviderId(String(providerParam));
         } else if (pList.length > 0 && !selectedProviderId) {
-          // Default to first provider's user_id or id
           setSelectedProviderId(String(pList[0].user_id || pList[0].id));
         }
       } catch (err) {
         console.error('Failed to load booking form data', err);
+        const fallbackS = getClientServices();
+        setServices(fallbackS);
+        if (serviceId) {
+          setSelectedServiceId(String(serviceId));
+        }
       } finally {
         setLoading(false);
       }
@@ -93,12 +129,21 @@ export default function BookService() {
     loadAvailability();
   }, [selectedProviderId]);
 
-  const activeService = services.find((s) => String(s.id) === String(selectedServiceId));
-  const activeProvider = providers.find(
-    (p) => String(p.id) === String(selectedProviderId) || String(p.user_id) === String(selectedProviderId)
-  );
+  const activeService =
+    services.find((s) => String(s.id) === String(selectedServiceId)) ||
+    services[0] || {
+      id: 1,
+      name: 'Emergency Pipe Leak & Burst Repair',
+      base_price: 89.0,
+      duration_minutes: 60,
+    };
+  const activeProvider =
+    providers.find(
+      (p) => String(p.id) === String(selectedProviderId) || String(p.user_id) === String(selectedProviderId)
+    ) ||
+    providers[0] || { id: 2, full_name: 'Apex Home Solutions' };
 
-  const basePrice = activeService?.base_price || 99.0;
+  const basePrice = Number(activeService?.base_price ?? 79.0);
   const discountAmount = appliedCoupon ? appliedCoupon.discount_amount : 0.0;
   const totalPrice = Math.max(0.0, Number((basePrice - discountAmount).toFixed(2)));
 
@@ -158,13 +203,18 @@ export default function BookService() {
 
     setSubmitting(true);
     try {
-      const providerIdNum = activeProvider ? (activeProvider.user_id || activeProvider.id) : 2;
+      const effectiveServiceId = activeService?.id || parseInt(selectedServiceId) || 1;
+      const effectiveServiceName = activeService?.name || 'Home Service';
+      const effectiveDuration = activeService?.duration_minutes || 60;
+      const effectiveProviderId = activeProvider ? (activeProvider.user_id || activeProvider.id) : 2;
+      const effectiveProviderName = activeProvider?.business_name || activeProvider?.full_name || 'Apex Home Solutions';
+
       const bookingPayload = {
-        service_id: parseInt(selectedServiceId),
-        provider_id: providerIdNum,
+        service_id: effectiveServiceId,
+        provider_id: effectiveProviderId,
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime.length === 5 ? `${scheduledTime}:00` : scheduledTime,
-        duration_minutes: activeService?.duration_minutes || 60,
+        duration_minutes: effectiveDuration,
         total_price: totalPrice,
         address: address.trim(),
         city: city.trim() || 'San Francisco',
@@ -181,8 +231,9 @@ export default function BookService() {
         booking = {
           id: Date.now(),
           booking_reference: `HS-${Date.now().toString(36).toUpperCase()}`,
-          service_id: parseInt(selectedServiceId),
-          service_name: activeService?.name || 'Home Service',
+          service_id: effectiveServiceId,
+          service_name: effectiveServiceName,
+          duration_minutes: effectiveDuration,
           scheduled_date: scheduledDate,
           scheduled_time: scheduledTime,
           total_price: totalPrice,
@@ -198,8 +249,11 @@ export default function BookService() {
         ...booking,
         id: booking.id || Date.now(),
         booking_reference: booking.booking_reference || `HS-${Date.now().toString(36).toUpperCase()}`,
-        service_name: activeService?.name || booking.service_name || 'Home Service',
-        provider_name: activeProvider?.business_name || activeProvider?.user_name || 'Apex Home Solutions',
+        service_id: effectiveServiceId,
+        service_name: effectiveServiceName,
+        duration_minutes: effectiveDuration,
+        provider_id: effectiveProviderId,
+        provider_name: effectiveProviderName,
         customer_name: user?.full_name || 'Valued Customer',
         customer_email: user?.email,
         total_price: totalPrice,

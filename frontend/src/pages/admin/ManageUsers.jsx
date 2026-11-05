@@ -8,6 +8,7 @@ import {
   toggleClientUserStatus,
   toggleContractorVerification,
   deleteClientUser,
+  isUserDeleted,
 } from '../../services/userStorage';
 
 export default function ManageUsers() {
@@ -30,10 +31,16 @@ export default function ManageUsers() {
 
       const clientList = getClientUsers();
       const map = new Map();
-      clientList.forEach((u) => map.set(String(u.id), u));
+      clientList.forEach((u) => {
+        if (!isUserDeleted(u.id) && !isUserDeleted(u.email)) {
+          map.set(String(u.id), u);
+        }
+      });
       serverUsers.forEach((u) => {
-        const existing = map.get(String(u.id));
-        map.set(String(u.id), { ...existing, ...u });
+        if (!isUserDeleted(u.id) && !isUserDeleted(u.email)) {
+          const existing = map.get(String(u.id));
+          map.set(String(u.id), { ...existing, ...u });
+        }
       });
 
       let all = Array.from(map.values());

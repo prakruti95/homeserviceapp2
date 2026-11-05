@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { getClientUsers, isUserDeleted } from '../services/userStorage';
 
 const AuthContext = createContext(null);
 
@@ -86,16 +87,31 @@ function findUserByEmail(email) {
   const normEmail = (email || '').trim().toLowerCase();
   if (!normEmail) return null;
 
-  // 1. Check registered users created via registration form
+  // 1. If user was deleted by Admin, reject immediately
+  if (isUserDeleted(normEmail)) {
+    return null;
+  }
+
+  // 2. Check registered users created via registration form
   const registered = getRegisteredUsers();
   const foundRegistered = registered.find((u) => u.email.toLowerCase() === normEmail);
-  if (foundRegistered) return foundRegistered;
 
-  // 2. Check default demo accounts
+  // 3. Check default demo accounts
   const foundDefault = DEFAULT_DEMO_USERS.find((u) => u.email.toLowerCase() === normEmail);
-  if (foundDefault) return foundDefault;
 
-  return null;
+  // 4. Check client directory for latest dynamic status (e.g. deactivated by admin)
+  const dirUsers = getClientUsers();
+  const dirUser = dirUsers.find((u) => (u.email || '').trim().toLowerCase() === normEmail);
+
+  const baseUser = foundRegistered || foundDefault;
+  if (!baseUser && !dirUser) return null;
+
+  return {
+    ...foundDefault,
+    ...foundRegistered,
+    ...dirUser,
+    password: baseUser?.password || (dirUser?.role === 'customer' ? 'customer123' : 'admin123'),
+  };
 }
 
 export function AuthProvider({ children }) {
@@ -130,7 +146,7 @@ export function AuthProvider({ children }) {
       setUser(data);
       localStorage.setItem('user', JSON.stringify(data));
     } catch (err) {
-      const isOfflineOr405 = err.response?.status === 405 || err.response?.status === 404 || !err.response;
+      const isOfflineOr405 = !err.response || [404, 405, 500, 502, 503, 504].includes(err.response?.status);
       if (isOfflineOr405) {
         const stored = localStorage.getItem('user');
         if (stored) {
@@ -179,7 +195,7 @@ export function AuthProvider({ children }) {
         throw new Error(msg);
       }
 
-      const isOfflineOr405 = err.response?.status === 405 || err.response?.status === 404 || !err.response;
+      const isOfflineOr405 = !err.response || [404, 405, 500, 502, 503, 504].includes(err.response?.status);
       if (isOfflineOr405) {
         // Authenticate strictly against the credentials registry
         const matchedUser = findUserByEmail(normEmail);
@@ -241,7 +257,7 @@ export function AuthProvider({ children }) {
         throw new Error(msg);
       }
 
-      const isOfflineOr405 = err.response?.status === 405 || err.response?.status === 404 || !err.response;
+      const isOfflineOr405 = !err.response || [404, 405, 500, 502, 503, 504].includes(err.response?.status);
       if (isOfflineOr405) {
         // Check uniqueness in client registry
         const existing = findUserByEmail(normEmail);
@@ -265,6 +281,15 @@ export function AuthProvider({ children }) {
           is_active: true,
           created_at: new Date().toISOString(),
         };
+
+        // Unmark from deleted registry if re-registering
+        try {
+          const rawDel = localStorage.getItem('homeserve_deleted_user_keys');
+          if (rawDel) {
+            const delKeys = JSON.parse(rawDel).filter((k) => String(k).toLowerCase() !== normEmail);
+            localStorage.setItem('homeserve_deleted_user_keys', JSON.stringify(delKeys));
+          }
+        } catch {}
 
         saveRegisteredUser(newUser);
 

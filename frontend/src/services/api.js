@@ -54,8 +54,12 @@ api.interceptors.response.use(
       }
     }
     if (error.response?.status !== 401) {
-      // Don't toast error on benign 404s or 405s handled by component fallbacks
-      if (error.response?.status !== 404 && error.response?.status !== 405) {
+      // Don't toast error on benign 404s, 405s, or server error 500/502/503/504 handled by component fallbacks
+      if (
+        error.response?.status !== 404 &&
+        error.response?.status !== 405 &&
+        (error.response?.status || 0) < 500
+      ) {
         toast.error(message);
       }
     }

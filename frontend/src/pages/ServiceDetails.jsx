@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { fallbackServices } from '../data/catalog';
+import { getClientServices } from '../services/catalogStorage';
 
 export default function ServiceDetails() {
   const { id } = useParams();
@@ -26,13 +27,15 @@ export default function ServiceDetails() {
         if (srvRes.data) {
           setService(srvRes.data);
         } else {
-          const fallback = fallbackServices.find((s) => String(s.id) === String(id));
+          const allServices = getClientServices();
+          const fallback = allServices.find((s) => String(s.id) === String(id)) || fallbackServices.find((s) => String(s.id) === String(id));
           setService(fallback || null);
         }
         setReviews(revRes.data?.reviews || []);
       } catch (err) {
         console.error('Failed to load service details, checking catalog fallback', err);
-        const fallback = fallbackServices.find((s) => String(s.id) === String(id));
+        const allServices = getClientServices();
+        const fallback = allServices.find((s) => String(s.id) === String(id)) || fallbackServices.find((s) => String(s.id) === String(id));
         setService(fallback || null);
       } finally {
         setLoading(false);
