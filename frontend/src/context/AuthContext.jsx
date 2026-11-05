@@ -165,9 +165,42 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const syncLocalUsersToServer = useCallback(async () => {
+    try {
+      const registered = getRegisteredUsers();
+      for (const localUser of registered) {
+        if (localUser.email && localUser.password && !localUser.synced_to_server) {
+          try {
+            await api.post('/auth/register', {
+              email: localUser.email.trim().toLowerCase(),
+              password: localUser.password,
+              full_name: localUser.full_name || 'HomeServe User',
+              phone: localUser.phone || '+1-555-0100',
+              role: localUser.role || 'customer',
+              city: localUser.city || 'San Francisco',
+              address: localUser.address || '',
+              state: localUser.state || '',
+              zip_code: localUser.zip_code || '',
+            });
+            localUser.synced_to_server = true;
+            saveRegisteredUser(localUser);
+          } catch (syncErr) {
+            if (syncErr.response?.status === 409) {
+              localUser.synced_to_server = true;
+              saveRegisteredUser(localUser);
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     fetchUser();
-  }, [fetchUser]);
+    syncLocalUsersToServer();
+  }, [fetchUser, syncLocalUsersToServer]);
 
   const login = async (email, password) => {
     const normEmail = (email || '').trim().toLowerCase();
@@ -186,8 +219,7 @@ export function AuthProvider({ children }) {
       toast.success('Logged in successfully');
       return data.user;
     } catch (err) {
-      // If backend failed (e.g. 401 user not in ephemeral serverless container, 404, 500, or offline):
-      // Check our verified credentials and registration registry!
+      // If backend failed (e.g. user was registered locally earlier and not yet in cloud DB):
       const matchedUser = findUserByEmail(normEmail);
 
       if (matchedUser) {
@@ -203,7 +235,31 @@ export function AuthProvider({ children }) {
           throw new Error('Account inactive');
         }
 
-        // 3. Successful authentication:
+        // 3. Immediately push this user to the cloud database so all other devices can log in!
+        try {
+          const regRes = await api.post('/auth/register', {
+            email: normEmail,
+            password: cleanPassword,
+            full_name: matchedUser.full_name || 'HomeServe User',
+            phone: matchedUser.phone || '+1-555-0100',
+            role: matchedUser.role || 'customer',
+            city: matchedUser.city || 'San Francisco',
+            address: matchedUser.address || '',
+            state: matchedUser.state || '',
+            zip_code: matchedUser.zip_code || '',
+          });
+          if (regRes?.data?.access_token) {
+            localStorage.setItem('access_token', regRes.data.access_token);
+            localStorage.setItem('user', JSON.stringify(regRes.data.user));
+            setUser(regRes.data.user);
+            toast.success(`Logged in as ${regRes.data.user.full_name}`);
+            return regRes.data.user;
+          }
+        } catch {
+          // Handled, continue with session
+        }
+
+        // Successful authentication:
         const sessionUser = { ...matchedUser };
         delete sessionUser.password;
 
@@ -232,7 +288,12 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const { data } = await api.post('/auth/register', payload);
+      const { data } = await api.post('/auth/register', {
+        ...payload,
+        email: normEmail,
+        password: cleanPassword,
+        full_name: payload.full_name.trim(),
+      });
       // Synchronize newly created user with client registry for instant directory lookup
       const registeredUser = data?.user || {
         id: Date.now(),
@@ -248,7 +309,7 @@ export function AuthProvider({ children }) {
         is_active: true,
         created_at: new Date().toISOString(),
       };
-      saveRegisteredUser({ ...registeredUser, password: cleanPassword });
+      saveRegisteredUser({ ...registeredUser, password: cleanPassword, synced_to_server: true });
       saveClientUser(registeredUser);
       toast.success('Account created successfully! Please sign in.');
       return data;

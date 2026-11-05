@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import DB, CurrentUser, CurrentToken, revoke_token
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: DB) -> TokenResponse:
     """Register a new user and return an access token."""
-    existing = db.query(User).filter(User.email == payload.email).first()
+    clean_email = str(payload.email).strip().lower()
+    existing = db.query(User).filter(func.lower(User.email) == clean_email).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -26,15 +28,15 @@ def register(payload: UserCreate, db: DB) -> TokenResponse:
         )
 
     user = User(
-        email=payload.email,
+        email=clean_email,
         hashed_password=hash_password(payload.password),
-        full_name=payload.full_name,
-        phone=payload.phone,
+        full_name=payload.full_name.strip(),
+        phone=payload.phone.strip() if payload.phone else None,
         role=payload.role,
-        address=payload.address,
-        city=payload.city,
-        state=payload.state,
-        zip_code=payload.zip_code,
+        address=payload.address.strip() if payload.address else None,
+        city=payload.city.strip() if payload.city else None,
+        state=payload.state.strip() if payload.state else None,
+        zip_code=payload.zip_code.strip() if payload.zip_code else None,
     )
     db.add(user)
     db.commit()
@@ -51,7 +53,7 @@ def register(payload: UserCreate, db: DB) -> TokenResponse:
 def login(payload: UserLogin, db: DB) -> TokenResponse:
     """Authenticate and return an access token."""
     login_identifier = (payload.email or payload.username or "").strip().lower()
-    user = db.query(User).filter(User.email == login_identifier).first()
+    user = db.query(User).filter(func.lower(User.email) == login_identifier).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

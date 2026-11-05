@@ -142,6 +142,9 @@ export default function Register({ defaultRole }) {
                     type="email"
                     name="email"
                     required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
                     value={formData.email}
                     onChange={handleChange}
                     className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"

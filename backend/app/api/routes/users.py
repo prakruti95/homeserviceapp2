@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import DB, AdminUser
@@ -14,7 +15,7 @@ def list_users(
     db: DB,
     admin: AdminUser,
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=500),
     role: str | None = None,
     is_active: bool | None = None,
 ) -> UserListResponse:
@@ -44,19 +45,20 @@ def get_user(user_id: int, db: DB, admin: AdminUser) -> UserResponse:
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(payload: UserCreate, db: DB, admin: AdminUser) -> UserResponse:
     """Create a user (admin only)."""
-    existing = db.query(User).filter(User.email == payload.email).first()
+    clean_email = str(payload.email).strip().lower()
+    existing = db.query(User).filter(func.lower(User.email) == clean_email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user = User(
-        email=payload.email,
+        email=clean_email,
         hashed_password=hash_password(payload.password),
-        full_name=payload.full_name,
-        phone=payload.phone,
+        full_name=payload.full_name.strip(),
+        phone=payload.phone.strip() if payload.phone else None,
         role=payload.role,
-        address=payload.address,
-        city=payload.city,
-        state=payload.state,
-        zip_code=payload.zip_code,
+        address=payload.address.strip() if payload.address else None,
+        city=payload.city.strip() if payload.city else None,
+        state=payload.state.strip() if payload.state else None,
+        zip_code=payload.zip_code.strip() if payload.zip_code else None,
     )
     db.add(user)
     db.commit()
