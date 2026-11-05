@@ -131,11 +131,12 @@ export default function BookService() {
 
   const activeService =
     services.find((s) => String(s.id) === String(selectedServiceId)) ||
+    (String(selectedServiceId) === '2' ? services.find((s) => s.name?.toLowerCase().includes('ac deep foam')) : null) ||
     services[0] || {
-      id: 1,
-      name: 'Emergency Pipe Leak & Burst Repair',
-      base_price: 89.0,
-      duration_minutes: 60,
+      id: 2,
+      name: 'AC Deep Foam Cleaning & Filter Wash',
+      base_price: 79.0,
+      duration_minutes: 75,
     };
   const activeProvider =
     providers.find(

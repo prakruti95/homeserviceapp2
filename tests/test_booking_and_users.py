@@ -18,9 +18,10 @@ def test_booking_and_admin_governance(base_url):
         page.wait_for_selector('text=Welcome back', timeout=10000)
         print("   [PASS] Customer logged in.")
 
-        # Step 2: Book Service with $79 (Service ID 2: AC Deep Foam Cleaning)
+        # Step 2: Book Service ($79.00 AC Deep Foam Cleaning)
         print("2. Navigating to Book Service #2 ($79.00 AC Deep Foam Cleaning)...")
         page.goto(f"{base_url}/customer/book/2")
+        page.wait_for_selector('h1:has-text("Schedule a Service")', timeout=10000)
         page.wait_for_selector('div.font-semibold:has-text("AC Deep Foam Cleaning")', timeout=10000)
         
         # Verify pricing shows $79.00 and NOT $99.00
