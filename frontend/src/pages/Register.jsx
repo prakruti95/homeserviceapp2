@@ -36,23 +36,14 @@ export default function Register({ defaultRole }) {
     }
     setSubmitting(true);
     try {
-      const res = await register({
+      await register({
         ...formData,
         role,
       });
-      if (res?.access_token) {
-        if (role === 'provider') {
-          navigate('/provider/dashboard');
-        } else if (role === 'technician') {
-          navigate('/technician/dashboard');
-        } else {
-          navigate('/customer/dashboard');
-        }
-      } else {
-        navigate('/login');
-      }
+      // Redirect to login page and pre-fill email
+      navigate('/login', { state: { registeredEmail: formData.email.trim() } });
     } catch (err) {
-      // toast shown by interceptor
+      // toast shown by register function
     } finally {
       setSubmitting(false);
     }

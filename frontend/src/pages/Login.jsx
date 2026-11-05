@@ -8,7 +8,7 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(location.state?.registeredEmail || '');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
