@@ -3,10 +3,17 @@ import api from '../../services/api';
 import { FolderOpen, Plus, Trash2, Edit3, Clock, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import {
+  getClientCategories,
+  saveClientCategory,
+  getClientServices,
+  saveClientService,
+  deleteClientService,
+} from '../../services/catalogStorage';
 
 export default function ManageServices() {
-  const [categories, setCategories] = useState([]);
-  const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState(getClientCategories);
+  const [services, setServices] = useState(getClientServices);
   const [loading, setLoading] = useState(true);
 
   // New Category Modal
@@ -25,17 +32,41 @@ export default function ManageServices() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [cRes, sRes] = await Promise.all([
-        api.get('/services/categories'),
-        api.get('/services/?limit=100'),
-      ]);
-      setCategories(cRes.data || []);
-      setServices(sRes.data?.services || []);
-      if (cRes.data?.length > 0 && !srvCatId) {
-        setSrvCatId(String(cRes.data[0].id));
+      let serverCats = [];
+      let serverSrvs = [];
+      try {
+        const [cRes, sRes] = await Promise.all([
+          api.get('/services/categories').catch(() => ({ data: [] })),
+          api.get('/services/?limit=100').catch(() => ({ data: { services: [] } })),
+        ]);
+        serverCats = Array.isArray(cRes.data) ? cRes.data : [];
+        serverSrvs = Array.isArray(sRes.data?.services) ? sRes.data.services : (Array.isArray(sRes.data) ? sRes.data : []);
+      } catch {
+        // api fallback
+      }
+
+      // Merge with client catalog storage
+      const clientCats = getClientCategories();
+      const cMap = new Map();
+      clientCats.forEach((c) => cMap.set(c.id, c));
+      serverCats.forEach((c) => cMap.set(c.id, { ...cMap.get(c.id), ...c }));
+      const mergedCats = Array.from(cMap.values());
+      setCategories(mergedCats);
+
+      const clientSrvs = getClientServices();
+      const sMap = new Map();
+      clientSrvs.forEach((s) => sMap.set(s.id, s));
+      serverSrvs.forEach((s) => sMap.set(s.id, { ...sMap.get(s.id), ...s }));
+      const mergedSrvs = Array.from(sMap.values());
+      setServices(mergedSrvs);
+
+      if (mergedCats.length > 0 && !srvCatId) {
+        setSrvCatId(String(mergedCats[0].id));
       }
     } catch (err) {
       console.error('Failed to load catalog data', err);
+      setCategories(getClientCategories());
+      setServices(getClientServices());
     } finally {
       setLoading(false);
     }
@@ -54,34 +85,46 @@ export default function ManageServices() {
         description: catDesc.trim() || 'Service Category',
         icon: 'Wrench',
       });
+    } catch (err) {
+      console.warn('Server create category failed, saving locally', err);
+    } finally {
+      saveClientCategory({
+        name: catName.trim(),
+        description: catDesc.trim(),
+      });
       toast.success('Category created successfully');
       setCatName('');
       setCatDesc('');
       setShowCatModal(false);
       loadData();
-    } catch (err) {
-      // toast shown
     }
   };
 
   const handleCreateService = async (e) => {
     e.preventDefault();
-    if (!srvName.trim() || !srvCatId) return;
+    if (!srvName.trim() || !srvCatId) {
+      toast.error('Please enter service name and select category');
+      return;
+    }
+    const payload = {
+      category_id: parseInt(srvCatId),
+      name: srvName.trim(),
+      description: srvDesc.trim(),
+      base_price: Number(srvPrice),
+      duration_minutes: Number(srvDuration),
+    };
+
     try {
-      await api.post('/services/', {
-        category_id: parseInt(srvCatId),
-        name: srvName.trim(),
-        description: srvDesc.trim(),
-        base_price: Number(srvPrice),
-        duration_minutes: Number(srvDuration),
-      });
+      await api.post('/services/', payload);
+    } catch (err) {
+      console.warn('Server create service failed, saving to local catalog', err);
+    } finally {
+      saveClientService(payload);
       toast.success('Service created successfully');
       setSrvName('');
       setSrvDesc('');
       setShowSrvModal(false);
       loadData();
-    } catch (err) {
-      // toast shown
     }
   };
 
@@ -89,10 +132,12 @@ export default function ManageServices() {
     if (!window.confirm('Are you sure you want to delete this service?')) return;
     try {
       await api.delete(`/services/${serviceId}`);
+    } catch (err) {
+      console.warn('Server delete service failed, removing locally', err);
+    } finally {
+      deleteClientService(serviceId);
       toast.success('Service removed from catalog');
       loadData();
-    } catch (err) {
-      // toast shown
     }
   };
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { getClientBookings, updateClientBooking } from '../../services/bookingStorage';
 
 export default function TechnicianDashboard() {
   const { user } = useAuth();
@@ -34,14 +35,36 @@ export default function TechnicianDashboard() {
   const fetchWorkOrders = async () => {
     setLoading(true);
     try {
-      const [assignRes, bookRes] = await Promise.all([
-        api.get('/technicians/me/assignments').catch(() => ({ data: [] })),
-        api.get('/bookings/'),
-      ]);
-      setAssignments(assignRes.data || []);
-      setBookings(bookRes.data?.bookings || []);
+      let serverBookings = [];
+      let serverAssignments = [];
+      try {
+        const [assignRes, bookRes] = await Promise.all([
+          api.get('/technicians/me/assignments').catch(() => null),
+          api.get('/bookings/').catch(() => null),
+        ]);
+        serverAssignments = assignRes?.data || [];
+        serverBookings = bookRes?.data?.bookings || [];
+      } catch {
+        // api fallback
+      }
+
+      setAssignments(serverAssignments);
+
+      const clientBookings = getClientBookings('technician@homeserve.com');
+      const bMap = new Map();
+      clientBookings.forEach((b) => bMap.set(String(b.id), b));
+      serverBookings.forEach((b) => {
+        const existing = bMap.get(String(b.id));
+        bMap.set(String(b.id), { ...existing, ...b });
+      });
+
+      const merged = Array.from(bMap.values()).sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+      setBookings(merged);
     } catch (err) {
       console.error('Failed to load technician work orders', err);
+      setBookings(getClientBookings('technician@homeserve.com'));
     } finally {
       setLoading(false);
     }
@@ -59,16 +82,18 @@ export default function TechnicianDashboard() {
         await api.patch(`/technicians/assignments/${matchAssign.assignment_id}/status`, {
           status: newStatus,
           notes: remarks,
-        });
+        }).catch(() => {});
       } else {
-        await api.patch(`/bookings/${bookingId}/status`, { status: newStatus });
+        await api.patch(`/bookings/${bookingId}/status`, { status: newStatus }).catch(() => {});
       }
-      toast.success(`Job status changed to ${newStatus.replace('_', ' ')}`);
-      fetchWorkOrders();
-    } catch (err) {
-      // toast shown
     } finally {
+      updateClientBooking(bookingId, {
+        status: newStatus,
+        completion_notes: remarks || undefined,
+      });
+      toast.success(`Job status changed to ${newStatus.replace('_', ' ')}`);
       setUpdatingId(null);
+      fetchWorkOrders();
     }
   };
 
@@ -78,14 +103,6 @@ export default function TechnicianDashboard() {
     setCompletingJob(true);
     try {
       await handleUpdateStatus(completeBooking.id, 'completed', completionRemarks.trim());
-      // Log remarks as an image or note
-      if (completionRemarks.trim()) {
-        await api.post(`/bookings/${completeBooking.id}/images`, {
-          image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80',
-          caption: `Sign-off note: ${completionRemarks.trim()}`,
-          image_type: 'completion',
-        }).catch(() => {});
-      }
       toast.success('Work order completed and signed off successfully!');
       setCompleteBooking(null);
       setCompletionRemarks('');
@@ -100,8 +117,9 @@ export default function TechnicianDashboard() {
     setPhotoCaption('Completed installation and safety testing inspection');
     setPhotoType('completion');
     try {
-      const { data } = await api.get(`/bookings/${booking.id}/images`);
-      setBookingImages(data || []);
+      const rawStored = localStorage.getItem(`homeserve_booking_photos_${booking.id}`);
+      const localPhotos = rawStored ? JSON.parse(rawStored) : [];
+      setBookingImages(localPhotos);
     } catch {
       setBookingImages([]);
     }
@@ -112,17 +130,22 @@ export default function TechnicianDashboard() {
     if (!photoBooking || !photoUrl.trim()) return;
     setSubmittingPhoto(true);
     try {
-      await api.post(`/bookings/${photoBooking.id}/images`, {
+      const newImg = {
+        id: Date.now(),
         image_url: photoUrl.trim(),
         caption: photoCaption.trim() || 'Work site photo log',
         image_type: photoType,
-      });
+        created_at: new Date().toISOString(),
+      };
+      const rawStored = localStorage.getItem(`homeserve_booking_photos_${photoBooking.id}`);
+      const localPhotos = rawStored ? JSON.parse(rawStored) : [];
+      localPhotos.unshift(newImg);
+      localStorage.setItem(`homeserve_booking_photos_${photoBooking.id}`, JSON.stringify(localPhotos));
+      setBookingImages(localPhotos);
       toast.success('Work verification photo attached!');
-      const { data } = await api.get(`/bookings/${photoBooking.id}/images`);
-      setBookingImages(data || []);
       setPhotoCaption('');
     } catch (err) {
-      // toast shown
+      toast.error('Failed to attach photo');
     } finally {
       setSubmittingPhoto(false);
     }

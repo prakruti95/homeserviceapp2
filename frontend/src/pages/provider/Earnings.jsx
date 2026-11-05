@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { DollarSign, TrendingUp, Calendar, CheckCircle2, Download } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { getClientBookings } from '../../services/bookingStorage';
 
 export default function ProviderEarnings() {
   const [bookings, setBookings] = useState([]);
@@ -10,10 +11,24 @@ export default function ProviderEarnings() {
   useEffect(() => {
     async function loadEarnings() {
       try {
-        const { data } = await api.get('/bookings/');
-        setBookings(data?.bookings || []);
+        let serverBookings = [];
+        try {
+          const { data } = await api.get('/bookings/');
+          serverBookings = data?.bookings || [];
+        } catch {
+          // api fallback
+        }
+        const clientBookings = getClientBookings('provider@homeserve.com');
+        const bMap = new Map();
+        clientBookings.forEach((b) => bMap.set(String(b.id), b));
+        serverBookings.forEach((b) => {
+          const existing = bMap.get(String(b.id));
+          bMap.set(String(b.id), { ...existing, ...b });
+        });
+        setBookings(Array.from(bMap.values()));
       } catch (err) {
         console.error('Failed to load earnings', err);
+        setBookings(getClientBookings('provider@homeserve.com'));
       } finally {
         setLoading(false);
       }

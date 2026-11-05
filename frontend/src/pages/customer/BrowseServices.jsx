@@ -4,14 +4,15 @@ import api from '../../services/api';
 import { Search, Filter, Clock, Star, Wrench, ArrowRight, Check } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { fallbackCategories, fallbackServices } from '../../data/catalog';
+import { getClientCategories, getClientServices } from '../../services/catalogStorage';
 
 export default function BrowseServices() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || '';
   const initialQuery = searchParams.get('q') || '';
 
-  const [categories, setCategories] = useState(fallbackCategories);
-  const [services, setServices] = useState(fallbackServices);
+  const [categories, setCategories] = useState(getClientCategories);
+  const [services, setServices] = useState(getClientServices);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(false);
@@ -22,9 +23,11 @@ export default function BrowseServices() {
         const { data } = await api.get('/services/categories');
         if (Array.isArray(data) && data.length > 0) {
           setCategories(data);
+        } else {
+          setCategories(getClientCategories());
         }
       } catch (err) {
-        console.error('Failed to load categories, using catalog fallbacks', err);
+        setCategories(getClientCategories());
       }
     }
     fetchCategories();
@@ -43,8 +46,7 @@ export default function BrowseServices() {
         if (Array.isArray(data?.services) && data.services.length > 0) {
           setServices(data.services);
         } else {
-          // Filter fallback catalog
-          let filtered = [...fallbackServices];
+          let filtered = getClientServices();
           if (selectedCategory) {
             filtered = filtered.filter(
               (s) => String(s.category_id) === String(selectedCategory) ||
@@ -61,8 +63,7 @@ export default function BrowseServices() {
           setServices(filtered);
         }
       } catch (err) {
-        console.error('Failed to load services, using catalog fallbacks', err);
-        let filtered = [...fallbackServices];
+        let filtered = getClientServices();
         if (selectedCategory) {
           filtered = filtered.filter(
             (s) => String(s.category_id) === String(selectedCategory) ||

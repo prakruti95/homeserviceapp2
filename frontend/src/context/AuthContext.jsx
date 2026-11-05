@@ -35,6 +35,15 @@ const DEFAULT_DEMO_USERS = [
   },
   {
     id: 4,
+    email: 'technician@homeserve.com',
+    password: 'tech123',
+    full_name: 'Alex Rivera (Technician)',
+    role: 'technician',
+    phone: '+1-800-555-0104',
+    is_active: true,
+  },
+  {
+    id: 40,
     email: 'tech@homeserve.com',
     password: 'tech123',
     full_name: 'Alex Rivera (Technician)',

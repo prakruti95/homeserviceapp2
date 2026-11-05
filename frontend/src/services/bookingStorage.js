@@ -11,6 +11,8 @@ const DEFAULT_SAMPLE_BOOKINGS = [
     service_name: 'Emergency Pipe Leak & Burst Repair',
     provider_id: 2,
     provider_name: 'Apex Home Solutions',
+    technician_id: 4,
+    technician_name: 'Alex Rivera (Technician)',
     status: 'completed',
     payment_status: 'paid',
     scheduled_date: '2026-11-02',
@@ -24,6 +26,7 @@ const DEFAULT_SAMPLE_BOOKINGS = [
     created_at: '2026-11-02T10:00:00Z',
     transaction_id: 'TXN-DEMO-901X7A',
     payment_method: 'credit_card',
+    completion_notes: 'Replaced brass union valve and verified no drips at 60 PSI.',
   },
   {
     id: 902,
@@ -35,6 +38,8 @@ const DEFAULT_SAMPLE_BOOKINGS = [
     service_name: 'AC Deep Foam Cleaning & Filter Wash',
     provider_id: 2,
     provider_name: 'Apex Home Solutions',
+    technician_id: 4,
+    technician_name: 'Alex Rivera (Technician)',
     status: 'confirmed',
     payment_status: 'paid',
     scheduled_date: '2026-11-06',
@@ -49,6 +54,56 @@ const DEFAULT_SAMPLE_BOOKINGS = [
     transaction_id: 'TXN-DEMO-902Y8B',
     payment_method: 'wallet',
   },
+  {
+    id: 903,
+    booking_reference: 'HS-BK-78914',
+    customer_id: 15,
+    customer_name: 'David Reynolds',
+    customer_email: 'david.r@example.com',
+    service_id: 3,
+    service_name: 'Full Home Electrical Safety Audit',
+    provider_id: 2,
+    provider_name: 'Apex Home Solutions',
+    technician_id: 4,
+    technician_name: 'Alex Rivera (Technician)',
+    status: 'pending',
+    payment_status: 'pending',
+    scheduled_date: '2026-11-08',
+    scheduled_time: '09:30:00',
+    duration_minutes: 90,
+    total_price: 99.0,
+    address: '105 Market Street, Apt 4B',
+    city: 'San Francisco',
+    zip_code: '94105',
+    notes: 'Main circuit breaker trips under dryer load. Incoming new booking.',
+    created_at: '2026-11-04T08:00:00Z',
+  },
+  {
+    id: 904,
+    booking_reference: 'HS-BK-78915',
+    customer_id: 16,
+    customer_name: 'Sophia Martinez',
+    customer_email: 'sophia.m@example.com',
+    service_id: 4,
+    service_name: 'Whole-House Deep Sanitization Clean',
+    provider_id: 2,
+    provider_name: 'Apex Home Solutions',
+    technician_id: 4,
+    technician_name: 'Alex Rivera (Technician)',
+    status: 'in_progress',
+    payment_status: 'paid',
+    scheduled_date: '2026-11-05',
+    scheduled_time: '13:00:00',
+    duration_minutes: 180,
+    total_price: 129.0,
+    address: '512 Oak Avenue',
+    city: 'San Francisco',
+    zip_code: '94107',
+    notes: 'Kitchen deep degreasing and tile sanitize underway.',
+    created_at: '2026-11-04T12:00:00Z',
+    transaction_id: 'TXN-DEMO-904Z9C',
+    payment_method: 'credit_card',
+  },
 ];
 
 export function getClientBookings(userEmail) {
@@ -59,16 +114,31 @@ export function getClientBookings(userEmail) {
     const normEmail = (userEmail || '').toLowerCase();
     const all = [...clientList];
 
-    // Include sample bookings if customer@homeserve.com or if no user bookings exist yet
-    if (!normEmail || normEmail === 'customer@homeserve.com' || all.length === 0) {
-      for (const sample of DEFAULT_SAMPLE_BOOKINGS) {
-        if (!all.some((b) => b.id === sample.id || b.booking_reference === sample.booking_reference)) {
-          all.push(sample);
-        }
+    // Seed defaults if not present
+    for (const sample of DEFAULT_SAMPLE_BOOKINGS) {
+      if (!all.some((b) => b.id === sample.id || b.booking_reference === sample.booking_reference)) {
+        all.push(sample);
       }
     }
 
-    return all.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    // Role-aware filtering
+    if (!normEmail || ['admin@homeserve.com', 'superadmin@homeserve.com'].includes(normEmail)) {
+      return all.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+
+    if (normEmail === 'provider@homeserve.com') {
+      return all.filter((b) => b.provider_id === 2 || (b.provider_name && b.provider_name.includes('Apex')))
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+
+    if (['technician@homeserve.com', 'tech@homeserve.com'].includes(normEmail)) {
+      return all.filter((b) => b.technician_id === 4 || ['confirmed', 'in_progress', 'completed'].includes(b.status))
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+
+    // Default customer filter: return own bookings, or default sample bookings if customer@homeserve.com
+    return all.filter((b) => !b.customer_email || b.customer_email.toLowerCase() === normEmail || normEmail === 'customer@homeserve.com')
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   } catch (err) {
     console.error('Failed to read bookings from storage', err);
     return DEFAULT_SAMPLE_BOOKINGS;
