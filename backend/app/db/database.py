@@ -52,16 +52,26 @@ def create_configured_engine(url: str):
     elif "postgresql" in normalized_url:
         engine_kwargs["pool_recycle"] = 300
 
-    try:
-        test_engine = create_engine(normalized_url, **engine_kwargs)
-        with test_engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        logger.info("Connected successfully to primary database.")
-        return test_engine
-    except Exception as e:
-        logger.warning(f"Could not connect to primary database ({e}). Falling back to SQLite.")
-        fallback_path = "/tmp/homeserve.db" if (os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME")) else "homeserve.db"
-        return create_engine(f"sqlite:///{fallback_path}", connect_args={"check_same_thread": False})
+    # Try connecting with preferred driver, fallback to pg8000 for pure-python PostgreSQL if needed
+    candidates = [normalized_url]
+    if "postgresql" in normalized_url and "+psycopg2" in normalized_url:
+        candidates.append(normalized_url.replace("+psycopg2", "+pg8000"))
+    elif "postgresql" in normalized_url and "+pg8000" in normalized_url:
+        candidates.append(normalized_url.replace("+pg8000", "+psycopg2"))
+
+    for test_url in candidates:
+        try:
+            test_engine = create_engine(test_url, **engine_kwargs)
+            with test_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            logger.info(f"Connected successfully to primary database using {test_url.split('://')[0]}.")
+            return test_engine
+        except Exception as e:
+            logger.warning(f"Driver connection failed for {test_url.split('://')[0]}: {e}")
+
+    logger.warning("Could not connect to primary database with available drivers. Falling back to SQLite.")
+    fallback_path = "/tmp/homeserve.db" if (os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME")) else "homeserve.db"
+    return create_engine(f"sqlite:///{fallback_path}", connect_args={"check_same_thread": False})
 
 
 engine = create_configured_engine(settings.DATABASE_URL)

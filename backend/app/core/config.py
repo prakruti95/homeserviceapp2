@@ -16,12 +16,15 @@ class Settings(BaseSettings):
     PORT: int = int(os.getenv("PORT", "8000"))
     SEED_DEMO_DATA: bool = True  # Automatically seed essential demo data if database is empty
 
-    # Database: checks POSTGRES_URL (Vercel Postgres standard), DATABASE_URL, or POSTGRES_PRISMA_URL
+    # Persistent Live Cloud PostgreSQL Database (Used across all devices & serverless instances)
+    DEFAULT_CLOUD_POSTGRES: str = "postgresql+psycopg2://neondb_owner:npg_cxG5vU9JSuAz@ep-delicate-silence-bdystvc2-pooler.c-8.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
+    # Database: checks POSTGRES_URL (Vercel Postgres standard), DATABASE_URL, POSTGRES_PRISMA_URL, or live cloud DB
     DATABASE_URL: str = (
         os.getenv("POSTGRES_URL")
         or os.getenv("DATABASE_URL")
         or os.getenv("POSTGRES_PRISMA_URL")
-        or ("sqlite:////tmp/homeserve.db" if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") else "mysql+pymysql://root@localhost:3306/homeserve")
+        or "postgresql+psycopg2://neondb_owner:npg_cxG5vU9JSuAz@ep-delicate-silence-bdystvc2-pooler.c-8.us-east-2.aws.neon.tech/neondb?sslmode=require"
     )
 
     # JWT Authentication
