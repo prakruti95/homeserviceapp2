@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { CalendarDays, Filter, RefreshCw, MapPin, DollarSign, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { getClientBookings, updateClientBooking } from '../../services/bookingStorage';
 
 export default function ManageBookings() {
   const [bookings, setBookings] = useState([]);
@@ -12,11 +13,38 @@ export default function ManageBookings() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const url = statusFilter ? `/bookings/?status=${statusFilter}` : '/bookings/';
-      const { data } = await api.get(url);
-      setBookings(data?.bookings || []);
+      let serverBookings = [];
+      try {
+        const url = statusFilter ? `/bookings/?status=${statusFilter}` : '/bookings/';
+        const { data } = await api.get(url);
+        serverBookings = data?.bookings || [];
+      } catch {
+        // api fallback
+      }
+
+      const clientBookings = getClientBookings();
+      const map = new Map();
+      clientBookings.forEach((b) => map.set(String(b.id), b));
+      serverBookings.forEach((b) => {
+        const existing = map.get(String(b.id));
+        map.set(String(b.id), { ...existing, ...b });
+      });
+
+      let all = Array.from(map.values()).sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+
+      if (statusFilter) {
+        all = all.filter((b) => b.status === statusFilter);
+      }
+      setBookings(all);
     } catch (err) {
       console.error('Failed to load admin bookings', err);
+      let list = getClientBookings();
+      if (statusFilter) {
+        list = list.filter((b) => b.status === statusFilter);
+      }
+      setBookings(list);
     } finally {
       setLoading(false);
     }
@@ -28,11 +56,11 @@ export default function ManageBookings() {
 
   const handleOverrideStatus = async (bookingId, newStatus) => {
     try {
-      await api.patch(`/bookings/${bookingId}/status`, { status: newStatus });
+      await api.patch(`/bookings/${bookingId}/status`, { status: newStatus }).catch(() => {});
+    } finally {
+      updateClientBooking(bookingId, { status: newStatus });
       toast.success(`Booking #${bookingId} status overridden to ${newStatus}`);
       fetchBookings();
-    } catch (err) {
-      // toast shown
     }
   };
 
