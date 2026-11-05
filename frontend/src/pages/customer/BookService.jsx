@@ -472,6 +472,7 @@ export default function BookService() {
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Street Address *</label>
               <input
                 type="text"
+                name="address"
                 required
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
@@ -485,6 +486,7 @@ export default function BookService() {
                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">City</label>
                 <input
                   type="text"
+                  name="city"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="San Francisco"
@@ -495,6 +497,7 @@ export default function BookService() {
                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Zip Code</label>
                 <input
                   type="text"
+                  name="zipCode"
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value)}
                   placeholder="94103"
