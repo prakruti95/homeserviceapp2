@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, ChevronDown, LogOut, User, Settings, Bell, Wrench } from 'lucide-react';
+import { Menu, X, ChevronDown, LogOut, User, Settings, Bell, Wrench, LayoutDashboard, CalendarDays } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 
@@ -68,9 +68,100 @@ export default function Navbar({ onToggleSidebar }) {
             </div>
           )}
 
-          {/* Authenticated user menu */}
+          {/* Desktop nav links for authenticated users */}
+          {user && (
+            <div className="hidden md:flex items-center gap-5">
+              <Link
+                to={getDashboardLink()}
+                className="text-xs font-bold text-gray-800 hover:text-blue-600 transition-colors flex items-center gap-1.5"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5 text-blue-600" /> Dashboard
+              </Link>
+
+              {user.role === 'customer' && (
+                <>
+                  <Link
+                    to="/customer/bookings"
+                    className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1.5"
+                  >
+                    <CalendarDays className="h-3.5 w-3.5 text-indigo-500" /> My Bookings
+                  </Link>
+                  <Link
+                    to="/customer/browse"
+                    className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    All Services
+                  </Link>
+                  <Link
+                    to="/customer/book"
+                    className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    + Book Service
+                  </Link>
+                </>
+              )}
+
+              {user.role === 'provider' && (
+                <>
+                  <Link
+                    to="/provider/bookings"
+                    className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    Incoming Orders
+                  </Link>
+                  <Link
+                    to="/provider/earnings"
+                    className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    Earnings
+                  </Link>
+                </>
+              )}
+
+              {user.role === 'technician' && (
+                <Link
+                  to="/technician/tasks"
+                  className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  My Tasks
+                </Link>
+              )}
+
+              {(user.role === 'admin' || user.role === 'super_admin') && (
+                <>
+                  <Link
+                    to="/admin/users"
+                    className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    Manage Users
+                  </Link>
+                  <Link
+                    to="/admin/bookings"
+                    className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    Bookings Supervision
+                  </Link>
+                </>
+              )}
+
+              <Link
+                to="/contact"
+                className="text-xs font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+              >
+                Support
+              </Link>
+            </div>
+          )}
+
+          {/* Authenticated user right menu */}
           {user && (
             <div className="flex items-center gap-3">
+              <Link
+                to={getDashboardLink()}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors shadow-sm"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
+              </Link>
               <Link
                 to="/notifications"
                 className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-xl transition-colors hidden sm:block"
@@ -108,8 +199,17 @@ export default function Navbar({ onToggleSidebar }) {
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                       >
-                        <User className="h-4 w-4 text-blue-600" /> Dashboard
+                        <LayoutDashboard className="h-4 w-4 text-blue-600" /> Dashboard
                       </Link>
+                      {user.role === 'customer' && (
+                        <Link
+                          to="/customer/bookings"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          <CalendarDays className="h-4 w-4 text-indigo-600" /> My Bookings
+                        </Link>
+                      )}
                       <Link
                         to={user.role === 'provider' ? '/provider/profile' : '/customer/profile'}
                         onClick={() => setMenuOpen(false)}
@@ -137,27 +237,62 @@ export default function Navbar({ onToggleSidebar }) {
             </div>
           )}
 
-          {/* Mobile menu toggle for guests */}
-          {!user && (
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          )}
+          {/* Mobile menu toggle for all users */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
 
-      {/* Mobile menu for guests */}
-      {!user && mobileOpen && (
+      {/* Mobile dropdown menu */}
+      {mobileOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white p-4 space-y-2">
-          <Link to="/" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">Home</Link>
-          <Link to="/customer/browse" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">All Services</Link>
-          <Link to="/about" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">About Us</Link>
-          <Link to="/contact" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">Support & FAQ</Link>
-          <Link to="/login" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">Sign In</Link>
-          <Link to="/register" onClick={() => setMobileOpen(false)} className="block px-4 py-2.5 text-xs font-bold text-white bg-blue-600 rounded-xl text-center hover:bg-blue-700">Get Started</Link>
+          {user ? (
+            <>
+              <div className="px-4 py-2 bg-blue-50 rounded-lg text-xs font-bold text-blue-900 mb-2">
+                Signed in as {user.full_name} ({user.role})
+              </div>
+              <Link to={getDashboardLink()} onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-bold text-blue-700 bg-blue-50/50 rounded-lg hover:bg-blue-100">
+                Dashboard
+              </Link>
+              {user.role === 'customer' && (
+                <>
+                  <Link to="/customer/bookings" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">
+                    My Bookings
+                  </Link>
+                  <Link to="/customer/book" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 text-center">
+                    + Book New Service
+                  </Link>
+                </>
+              )}
+              {user.role === 'provider' && (
+                <Link to="/provider/bookings" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">
+                  Incoming Orders
+                </Link>
+              )}
+              <Link to="/customer/browse" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">
+                All Services
+              </Link>
+              <Link to="/contact" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">
+                Support & Help
+              </Link>
+              <button onClick={() => { setMobileOpen(false); handleLogout(); }} className="w-full text-left px-4 py-2 text-xs font-semibold text-rose-600 rounded-lg hover:bg-rose-50">
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">Home</Link>
+              <Link to="/customer/browse" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">All Services</Link>
+              <Link to="/about" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">About Us</Link>
+              <Link to="/contact" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">Support & FAQ</Link>
+              <Link to="/login" onClick={() => setMobileOpen(false)} className="block px-4 py-2 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-100">Sign In</Link>
+              <Link to="/register" onClick={() => setMobileOpen(false)} className="block px-4 py-2.5 text-xs font-bold text-white bg-blue-600 rounded-xl text-center hover:bg-blue-700">Get Started</Link>
+            </>
+          )}
         </div>
       )}
     </nav>

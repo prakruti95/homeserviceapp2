@@ -207,7 +207,12 @@ export default function BookService() {
       const effectiveServiceId = activeService?.id || parseInt(selectedServiceId) || 1;
       const effectiveServiceName = activeService?.name || 'Home Service';
       const effectiveDuration = activeService?.duration_minutes || 60;
-      const effectiveProviderId = activeProvider ? (activeProvider.user_id || activeProvider.id) : 2;
+      let effectiveProviderId = 3;
+      if (activeProvider) {
+        effectiveProviderId = activeProvider.user_id || activeProvider.id || 3;
+      } else if (providers.length > 0) {
+        effectiveProviderId = providers[0].user_id || providers[0].id || 3;
+      }
       const effectiveProviderName = activeProvider?.business_name || activeProvider?.full_name || 'Apex Home Solutions';
 
       const bookingPayload = {

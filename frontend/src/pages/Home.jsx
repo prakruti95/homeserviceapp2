@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { 
   Wrench, Zap, Sparkles, Cpu, Paintbrush, ArrowRight, ShieldCheck, 
   Clock, ThumbsUp, Star, CheckCircle, Search, Quote, Snowflake, Hammer, ShieldAlert 
@@ -20,6 +21,7 @@ const categoryIcons = {
 };
 
 export default function Home() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [categories, setCategories] = useState(fallbackCategories);
   const [services, setServices] = useState(fallbackServices);
@@ -71,6 +73,31 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-950 text-white py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto text-center relative z-10">
+          {user && (
+            <div className="mb-8 p-3.5 sm:p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl max-w-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl">
+              <div className="text-left text-xs text-white">
+                <span className="font-bold text-teal-300">Welcome, {user.full_name}!</span>
+                <span className="opacity-75 block sm:inline sm:ml-1 capitalize font-medium">({user.role})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={user.role === 'provider' ? '/provider/dashboard' : user.role === 'technician' ? '/technician/dashboard' : user.role === 'admin' || user.role === 'super_admin' ? '/admin/dashboard' : '/customer/dashboard'}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                >
+                  My Dashboard <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                {user.role === 'customer' && (
+                  <Link
+                    to="/customer/bookings"
+                    className="px-3.5 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold text-xs rounded-xl transition-all"
+                  >
+                    My Bookings
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-semibold mb-6 uppercase tracking-wider">
             <ShieldCheck className="h-4 w-4" /> Trusted by 50,000+ Happy Homeowners
           </div>

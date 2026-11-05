@@ -88,7 +88,7 @@ export default function MyBookings() {
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+  }, [user]);
 
   const handleOpenReschedule = (booking) => {
     setRescheduleBooking(booking);
@@ -321,10 +321,16 @@ export default function MyBookings() {
           <LoadingSpinner size="lg" />
         </div>
       ) : filteredBookings.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-sm">
           <CalendarDays className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <h3 className="font-bold text-gray-800 text-base">No bookings found</h3>
-          <p className="text-xs text-gray-500 mt-1">There are no bookings matching this status criteria.</p>
+          <p className="text-xs text-gray-500 mt-1 mb-4">You have no reservations under this filter. Browse our service catalog to book an appointment.</p>
+          <Link
+            to="/customer/browse"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm"
+          >
+            Explore Services & Book Now
+          </Link>
         </div>
       ) : (
         <div className="space-y-4">
