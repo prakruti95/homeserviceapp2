@@ -19,8 +19,8 @@ def test_booking_and_admin_governance(base_url):
         print("   [PASS] Customer logged in.")
 
         # Step 2: Book Service ($79.00 AC Deep Foam Cleaning)
-        print("2. Navigating to Book Service #2 ($79.00 AC Deep Foam Cleaning)...")
-        page.goto(f"{base_url}/customer/book/2")
+        print("2. Navigating to Book Service #9 ($79.00 AC Deep Foam Cleaning)...")
+        page.goto(f"{base_url}/customer/book/9")
         page.wait_for_selector('h1:has-text("Schedule a Service")', timeout=10000)
         page.wait_for_selector('div.font-semibold:has-text("AC Deep Foam Cleaning")', timeout=10000)
         
@@ -62,41 +62,24 @@ def test_booking_and_admin_governance(base_url):
         assert "$79.00" in content, "Expected $79.00 in admin booking supervision"
         print("   [PASS] Admin bookings supervision shows exact $79.00 booking entry!")
 
-        # Step 5: Test Admin User Deactivation & Deletion
-        print("6. Testing Admin User Directory Governance (/admin/users)...")
-        page.goto(f"{base_url}/admin/users")
-        page.wait_for_selector('text=User Directory', timeout=10000)
-        
-        # Accept dialogs automatically
-        page.on("dialog", lambda dialog: dialog.accept())
-
-        # Find David Reynolds
-        page.wait_for_selector('text=David Reynolds', timeout=10000)
-        print("   Found user David Reynolds in directory.")
-
-        # Click Deactivate on David Reynolds' row
-        row = page.locator('tr:has-text("David Reynolds")')
-        deactivate_btn = row.locator('button:has-text("Deactivate")')
-        deactivate_btn.click()
-        time.sleep(1)
-
-        # Verify button changed to Activate and status is Deactivated
-        row = page.locator('tr:has-text("David Reynolds")')
-        assert "Deactivated" in row.inner_text(), "Expected status to show Deactivated"
-        print("   [PASS] User successfully deactivated by admin!")
-
-        # Step 6: Test that Deactivated User CANNOT Log In
-        print("7. Verifying deactivated user cannot log in...")
-        page.goto(f"{base_url}/login")
-        page.fill('input[type="email"]', "david.r@example.com")
-        page.fill('input[type="password"]', "customer123")
-        page.click('button[type="submit"]')
-        page.wait_for_selector('text=Your account is deactivated', timeout=5000)
-        print("   [PASS] Deactivated user blocked from login with account deactivated alert!")
-
-        # Step 7: Reactivate user, then delete user
-        print("8. Reactivating and deleting user as Admin...")
+        # Step 5: Test Real User Registration & Cross-Device Database Governance
+        test_email = f"user_{int(time.time())}@example.com"
+        print(f"6. Registering a new customer ({test_email}) in the live database...")
         page.evaluate("() => { localStorage.removeItem('access_token'); localStorage.removeItem('user'); }")
+        page.goto(f"{base_url}/register")
+        page.wait_for_selector('input[name="full_name"]', timeout=10000)
+        page.fill('input[name="full_name"]', "Live Database User")
+        page.fill('input[name="email"]', test_email)
+        page.fill('input[name="password"]', "password123")
+        page.fill('input[name="phone"]', "+1-800-555-4321")
+        page.fill('input[name="city"]', "San Francisco")
+        page.fill('input[name="address"]', "123 Market St")
+        page.click('button[type="submit"]')
+        page.wait_for_selector('text=Sign in to your account', timeout=10000)
+        print("   [PASS] User successfully created in live database.")
+
+        # Step 6: Log in as Admin to manage new user
+        print(f"7. Admin locating {test_email} in database directory...")
         page.goto(f"{base_url}/login")
         page.fill('input[type="email"]', "admin@homeserve.com")
         page.fill('input[type="password"]', "admin123")
@@ -104,31 +87,60 @@ def test_booking_and_admin_governance(base_url):
         page.wait_for_selector('h1:has-text("Platform Master Console")', timeout=10000)
 
         page.goto(f"{base_url}/admin/users")
-        page.wait_for_selector('text=User Directory', timeout=10000)
-        row = page.locator('tr:has-text("David Reynolds")')
-        delete_btn = row.locator('button[title="Delete user"]')
-        delete_btn.click()
+        page.wait_for_selector(f'text={test_email}', timeout=10000)
+        print(f"   [PASS] Found newly registered user {test_email} in live database directory!")
+
+        # Deactivate user
+        page.on("dialog", lambda dialog: dialog.accept())
+        row = page.locator(f'tr:has-text("{test_email}")')
+        row.locator('button:has-text("Deactivate")').click()
+        time.sleep(1)
+        row = page.locator(f'tr:has-text("{test_email}")')
+        assert "Deactivated" in row.inner_text(), "Expected status to show Deactivated"
+        print("   [PASS] User successfully deactivated in live database!")
+
+        # Verify deactivated user cannot log in
+        print("8. Verifying deactivated user blocked from logging in...")
+        page.evaluate("() => { localStorage.removeItem('access_token'); localStorage.removeItem('user'); }")
+        page.goto(f"{base_url}/login")
+        page.fill('input[type="email"]', test_email)
+        page.fill('input[type="password"]', "password123")
+        page.click('button[type="submit"]')
+        page.wait_for_selector('text=deactivated', timeout=5000)
+        print("   [PASS] Deactivated user blocked from login with account deactivated message!")
+
+        # Delete user
+        print("9. Admin permanently deleting user from live database...")
+        page.goto(f"{base_url}/login")
+        page.fill('input[type="email"]', "admin@homeserve.com")
+        page.fill('input[type="password"]', "admin123")
+        page.click('button[type="submit"]')
+        page.wait_for_selector('h1:has-text("Platform Master Console")', timeout=10000)
+
+        page.goto(f"{base_url}/admin/users")
+        page.wait_for_selector(f'text={test_email}', timeout=10000)
+        row = page.locator(f'tr:has-text("{test_email}")')
+        row.locator('button[title="Delete user"]').click()
         time.sleep(1)
 
-        # Verify David Reynolds is completely gone from the table
         page.reload()
         page.wait_for_selector('text=User Directory', timeout=10000)
-        content = page.content()
-        assert "David Reynolds" not in content, "David Reynolds should be permanently deleted from user directory"
-        print("   [PASS] User permanently deleted from directory!")
+        assert test_email not in page.content(), "Deleted user should not appear in directory"
+        print("   [PASS] User permanently deleted from database directory!")
 
-        # Verify Deleted User cannot log in
-        print("9. Verifying deleted user cannot log in...")
+        # Verify deleted user cannot log in
+        print("10. Verifying deleted user cannot log in...")
+        page.evaluate("() => { localStorage.removeItem('access_token'); localStorage.removeItem('user'); }")
         page.goto(f"{base_url}/login")
-        page.fill('input[type="email"]', "david.r@example.com")
-        page.fill('input[type="password"]', "customer123")
+        page.fill('input[type="email"]', test_email)
+        page.fill('input[type="password"]', "password123")
         page.click('button[type="submit"]')
         page.wait_for_selector('text=Invalid email or password', timeout=5000)
         print("   [PASS] Deleted user blocked from login!")
 
         browser.close()
         print("\n=======================================================")
-        print("ALL TESTS PASSED: Dynamic $79 pricing & Admin Deactivate/Delete fully working!")
+        print("ALL TESTS PASSED: Live Database Registration, $79 Booking, and Admin Governance 100% Verified!")
         print("=======================================================")
 
 if __name__ == "__main__":

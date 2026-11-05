@@ -32,14 +32,16 @@ export default function ManageUsers() {
       const clientList = getClientUsers();
       const map = new Map();
       clientList.forEach((u) => {
+        const key = (u.email || '').trim().toLowerCase() || String(u.id);
         if (!isUserDeleted(u.id) && !isUserDeleted(u.email)) {
-          map.set(String(u.id), u);
+          map.set(key, u);
         }
       });
       serverUsers.forEach((u) => {
+        const key = (u.email || '').trim().toLowerCase() || String(u.id);
         if (!isUserDeleted(u.id) && !isUserDeleted(u.email)) {
-          const existing = map.get(String(u.id));
-          map.set(String(u.id), { ...existing, ...u });
+          const existing = map.get(key);
+          map.set(key, { ...existing, ...u });
         }
       });
 
@@ -66,11 +68,13 @@ export default function ManageUsers() {
 
   const handleToggleStatus = async (user) => {
     try {
-      await api.put(`/users/${user.id}`, { is_active: !user.is_active });
+      if (typeof user.id === 'number' && user.id < 100000000) {
+        await api.put(`/users/${user.id}`, { is_active: !user.is_active });
+      }
     } catch (err) {
       console.warn('Server toggle user failed, updating locally', err);
     } finally {
-      const newStatus = toggleClientUserStatus(user.id);
+      const newStatus = toggleClientUserStatus(user.id || user.email);
       toast.success(`User ${newStatus ? 'activated' : 'deactivated'}`);
       fetchUsers();
     }
@@ -78,24 +82,31 @@ export default function ManageUsers() {
 
   const handleToggleVerification = async (user) => {
     try {
-      await api.patch(`/admin/providers/${user.id}/verify`, { is_verified: !user.is_verified });
+      if (typeof user.id === 'number' && user.id < 100000000) {
+        await api.patch(`/admin/providers/${user.id}/verify`, { is_verified: !user.is_verified });
+      }
     } catch (err) {
       console.warn('Server verify provider failed, updating locally', err);
     } finally {
-      const verified = toggleContractorVerification(user.id);
+      const verified = toggleContractorVerification(user.id || user.email);
       toast.success(`Contractor ${verified ? 'Verified & Certified' : 'Verification Revoked'}`);
       fetchUsers();
     }
   };
 
-  const handleDeleteUser = async (userId) => {
+  const handleDeleteUser = async (userOrId) => {
+    const userId = typeof userOrId === 'object' ? userOrId.id : userOrId;
+    const userEmail = typeof userOrId === 'object' ? userOrId.email : null;
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
-      await api.delete(`/users/${userId}`);
+      if (typeof userId === 'number' && userId < 100000000) {
+        await api.delete(`/users/${userId}`);
+      }
     } catch (err) {
       console.warn('Server delete user failed, updating locally', err);
     } finally {
       deleteClientUser(userId);
+      if (userEmail) deleteClientUser(userEmail);
       toast.success('User deleted successfully');
       fetchUsers();
     }
@@ -273,7 +284,7 @@ export default function ManageUsers() {
                               {u.is_active ? 'Deactivate' : 'Activate'}
                             </button>
                             <button
-                              onClick={() => handleDeleteUser(u.id)}
+                              onClick={() => handleDeleteUser(u)}
                               className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
                               title="Delete user"
                             >

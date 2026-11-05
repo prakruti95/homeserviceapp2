@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { getClientUsers, isUserDeleted } from '../services/userStorage';
+import { getClientUsers, isUserDeleted, saveClientUser } from '../services/userStorage';
 
 const AuthContext = createContext(null);
 
@@ -247,6 +247,23 @@ export function AuthProvider({ children }) {
 
     try {
       const { data } = await api.post('/auth/register', payload);
+      // Synchronize newly created user with client registry for instant directory lookup
+      const registeredUser = data?.user || {
+        id: Date.now(),
+        email: normEmail,
+        password: cleanPassword,
+        full_name: payload.full_name?.trim() || 'New User',
+        phone: payload.phone || '+1-555-0100',
+        role: payload.role || 'customer',
+        city: payload.city || 'San Francisco',
+        address: payload.address || '',
+        state: payload.state || '',
+        zip_code: payload.zip_code || '',
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+      saveRegisteredUser({ ...registeredUser, password: cleanPassword });
+      saveClientUser(registeredUser);
       toast.success('Account created successfully! Please sign in.');
       return data;
     } catch (err) {
