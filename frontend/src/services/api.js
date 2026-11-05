@@ -28,7 +28,20 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If response is HTML from a SPA fallback rewrite, reject it as a 404 so caller fallback handlers trigger!
+    if (
+      typeof response.data === 'string' &&
+      (response.data.trim().startsWith('<!doctype') ||
+        response.data.trim().startsWith('<!DOCTYPE') ||
+        response.data.trim().startsWith('<html'))
+    ) {
+      const err = new Error('API endpoint returned HTML index fallback');
+      err.response = { status: 404, data: { detail: 'API route not found' } };
+      return Promise.reject(err);
+    }
+    return response;
+  },
   (error) => {
     const message = error.response?.data?.detail || error.message || 'Something went wrong';
     if (error.response?.status === 401) {

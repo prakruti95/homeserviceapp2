@@ -21,8 +21,8 @@ const FALLBACK_TOP_PROVIDERS = [
 export default function CustomerDashboard() {
   const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [topProviders, setTopProviders] = useState([]);
+  const [categories, setCategories] = useState(fallbackCategories);
+  const [topProviders, setTopProviders] = useState(FALLBACK_TOP_PROVIDERS);
   const [loading, setLoading] = useState(true);
   const [paymentModalBooking, setPaymentModalBooking] = useState(null);
 
@@ -34,11 +34,15 @@ export default function CustomerDashboard() {
         api.get('/services/categories').catch(() => ({ data: [] })),
         api.get('/providers/').catch(() => ({ data: [] })),
       ]);
-      serverBookings = bookRes.data?.bookings || [];
-      const cats = catRes.data?.length > 0 ? catRes.data : fallbackCategories;
+      serverBookings = Array.isArray(bookRes.data?.bookings) ? bookRes.data.bookings : [];
+      const cats = Array.isArray(catRes.data) && catRes.data.length > 0 ? catRes.data : fallbackCategories;
       setCategories(cats);
       const rawProviders = provRes.data;
-      const pList = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
+      const pList = Array.isArray(rawProviders)
+        ? rawProviders
+        : Array.isArray(rawProviders?.providers)
+          ? rawProviders.providers
+          : [];
       setTopProviders(pList.length > 0 ? pList.slice(0, 3) : FALLBACK_TOP_PROVIDERS);
 
       // Merge server with client storage
@@ -66,9 +70,10 @@ export default function CustomerDashboard() {
     loadData();
   }, []);
 
-  const pendingBookings = bookings.filter((b) => b.status === 'pending');
-  const activeBookings = bookings.filter((b) => ['confirmed', 'provider_assigned', 'in_progress'].includes(b.status));
-  const completedBookings = bookings.filter((b) => b.status === 'completed');
+  const safeBookings = Array.isArray(bookings) ? bookings : [];
+  const pendingBookings = safeBookings.filter((b) => b.status === 'pending');
+  const activeBookings = safeBookings.filter((b) => ['confirmed', 'provider_assigned', 'in_progress'].includes(b.status));
+  const completedBookings = safeBookings.filter((b) => b.status === 'completed');
 
   if (loading) {
     return (
@@ -182,7 +187,7 @@ export default function CustomerDashboard() {
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {bookings.slice(0, 5).map((b) => (
+                {(Array.isArray(bookings) ? bookings : []).slice(0, 5).map((b) => (
                   <div key={b.id} className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -265,7 +270,7 @@ export default function CustomerDashboard() {
           </p>
 
           <div className="space-y-3 pt-2">
-            {topProviders.map((p) => (
+            {(Array.isArray(topProviders) && topProviders.length > 0 ? topProviders : FALLBACK_TOP_PROVIDERS).map((p) => (
               <div key={p.id} className="p-3.5 bg-slate-50 hover:bg-slate-100/70 rounded-xl border border-gray-100 transition-colors flex items-center justify-between">
                 <div>
                   <div className="font-bold text-gray-900 text-xs">{p.business_name || p.user_name}</div>
@@ -302,7 +307,7 @@ export default function CustomerDashboard() {
       <div>
         <h2 className="text-base font-bold text-gray-900 mb-4">Quick Service Catalog Access</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {categories.map((cat) => (
+          {(Array.isArray(categories) && categories.length > 0 ? categories : fallbackCategories).map((cat) => (
             <Link
               key={cat.id}
               to={`/customer/browse?category=${cat.id}`}
