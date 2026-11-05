@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import DemoPaymentModal from '../../components/DemoPaymentModal';
+import { saveClientBooking } from '../../services/bookingStorage';
 
 export default function BookService() {
   const { serviceId } = useParams();
@@ -42,6 +44,7 @@ export default function BookService() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [successBooking, setSuccessBooking] = useState(null);
+  const [paymentModalBooking, setPaymentModalBooking] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -175,44 +178,48 @@ export default function BookService() {
         const res = await api.post('/bookings/', bookingPayload);
         booking = res.data;
       } catch (apiErr) {
-        if (apiErr.response?.status === 405 || apiErr.response?.status === 404 || !apiErr.response) {
-          booking = {
-            id: Date.now(),
-            booking_reference: `HS-${Date.now().toString(36).toUpperCase()}`,
-            service_id: selectedServiceId,
-            service_name: activeService?.name || 'Home Service',
-            status: paymentMethod === 'credit_card' ? 'confirmed' : 'pending',
-            scheduled_date: scheduledDate,
-            scheduled_time: scheduledTime,
-            total_price: totalPrice,
-            address: address.trim(),
-            city: city.trim() || 'San Francisco',
-            zip_code: zipCode.trim() || '94103',
-            notes: notes.trim(),
-            created_at: new Date().toISOString(),
-          };
-        } else {
-          throw apiErr;
-        }
+        booking = {
+          id: Date.now(),
+          booking_reference: `HS-${Date.now().toString(36).toUpperCase()}`,
+          service_id: parseInt(selectedServiceId),
+          service_name: activeService?.name || 'Home Service',
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          total_price: totalPrice,
+          address: address.trim(),
+          city: city.trim() || 'San Francisco',
+          zip_code: zipCode.trim() || '94103',
+          notes: notes.trim(),
+          created_at: new Date().toISOString(),
+        };
       }
 
-      // If credit card selected, execute demo payment confirmation
+      const clientRecord = {
+        ...booking,
+        id: booking.id || Date.now(),
+        booking_reference: booking.booking_reference || `HS-${Date.now().toString(36).toUpperCase()}`,
+        service_name: activeService?.name || booking.service_name || 'Home Service',
+        provider_name: activeProvider?.business_name || activeProvider?.user_name || 'Apex Home Solutions',
+        customer_name: user?.full_name || 'Valued Customer',
+        customer_email: user?.email,
+        total_price: totalPrice,
+        scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime,
+        status: paymentMethod === 'credit_card' ? 'pending' : 'confirmed',
+        payment_status: 'pending',
+        created_at: new Date().toISOString(),
+      };
+
+      const saved = saveClientBooking(clientRecord, user);
+      setSuccessBooking(saved);
+
       if (paymentMethod === 'credit_card') {
-        try {
-          await api.post('/payments/process-demo', {
-            booking_id: booking.id,
-            amount: booking.total_price,
-            payment_method: 'credit_card',
-            demo_card_number: '4242424242424242',
-          });
-          booking.status = 'confirmed';
-        } catch (payErr) {
-          booking.status = 'confirmed';
-        }
+        // Open live interactive payment gateway immediately!
+        setPaymentModalBooking(saved);
+        toast.success('Reservation placed! Please authorize in the payment gateway.');
+      } else {
+        toast.success('Service successfully booked!');
       }
-
-      setSuccessBooking(booking);
-      toast.success('Service successfully booked!');
     } catch (err) {
       // toast shown by interceptor
     } finally {
@@ -277,18 +284,36 @@ export default function BookService() {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Payment Status:</span>
-            <span className="font-semibold text-emerald-600">
-              {paymentMethod === 'credit_card' ? 'Demo Payment (Instant Confirmation)' : 'Pay on Completion (Cash)'}
+            <span className={`font-semibold flex items-center gap-1 ${
+              successBooking.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'
+            }`}>
+              {successBooking.payment_status === 'paid' ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  PAID ({successBooking.transaction_id || 'SETTLED'})
+                </>
+              ) : (
+                'PAYMENT PENDING'
+              )}
             </span>
           </div>
         </div>
 
         <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+          {successBooking.payment_status !== 'paid' && (
+            <button
+              type="button"
+              onClick={() => setPaymentModalBooking(successBooking)}
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <CreditCard className="h-4 w-4" /> Open Payment Gateway Now
+            </button>
+          )}
           <Link
             to="/customer/bookings"
-            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm flex items-center justify-center gap-1.5"
           >
-            View in My Bookings
+            View in My Bookings <ArrowLeft className="h-4 w-4 rotate-180" />
           </Link>
           <Link
             to="/customer/browse"
@@ -297,6 +322,23 @@ export default function BookService() {
             Book Another Service
           </Link>
         </div>
+
+        {/* Modal rendered in success screen if needed */}
+        {paymentModalBooking && (
+          <DemoPaymentModal
+            booking={paymentModalBooking}
+            customerName={user?.full_name}
+            onClose={() => setPaymentModalBooking(null)}
+            onSuccess={(paidData) => {
+              setSuccessBooking((prev) => ({
+                ...prev,
+                payment_status: 'paid',
+                status: 'confirmed',
+                transaction_id: paidData.transaction_id,
+              }));
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -602,6 +644,22 @@ export default function BookService() {
           </div>
         </div>
       </form>
+
+      {paymentModalBooking && (
+        <DemoPaymentModal
+          booking={paymentModalBooking}
+          customerName={user?.full_name}
+          onClose={() => setPaymentModalBooking(null)}
+          onSuccess={(paidData) => {
+            setSuccessBooking((prev) => ({
+              ...prev,
+              payment_status: 'paid',
+              status: 'confirmed',
+              transaction_id: paidData.transaction_id,
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }

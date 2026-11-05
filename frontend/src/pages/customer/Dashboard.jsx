@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DemoPaymentModal from '../../components/DemoPaymentModal';
+import { getClientBookings } from '../../services/bookingStorage';
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
@@ -20,18 +21,34 @@ export default function CustomerDashboard() {
 
   const loadData = async () => {
     try {
+      let serverBookings = [];
       const [bookRes, catRes, provRes] = await Promise.all([
-        api.get('/bookings/'),
-        api.get('/services/categories'),
+        api.get('/bookings/').catch(() => ({ data: { bookings: [] } })),
+        api.get('/services/categories').catch(() => ({ data: [] })),
         api.get('/providers/').catch(() => ({ data: [] })),
       ]);
-      setBookings(bookRes.data?.bookings || []);
-      setCategories(catRes.data || []);
+      serverBookings = bookRes.data?.bookings || [];
+      setCategories(catRes.data?.length > 0 ? catRes.data : []);
       const rawProviders = provRes.data;
       const pList = Array.isArray(rawProviders) ? rawProviders : (rawProviders?.providers || []);
       setTopProviders(pList.slice(0, 3));
+
+      // Merge server with client storage
+      const clientBookings = getClientBookings(user?.email);
+      const map = new Map();
+      clientBookings.forEach((b) => map.set(String(b.id), b));
+      serverBookings.forEach((b) => {
+        const existing = map.get(String(b.id));
+        map.set(String(b.id), { ...existing, ...b });
+      });
+
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+      setBookings(merged);
     } catch (err) {
       console.error('Failed to load customer dashboard', err);
+      setBookings(getClientBookings(user?.email));
     } finally {
       setLoading(false);
     }

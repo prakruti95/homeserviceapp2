@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import InvoiceModal from '../../components/InvoiceModal';
 import DemoPaymentModal from '../../components/DemoPaymentModal';
+import { getClientBookings } from '../../services/bookingStorage';
 
 export default function MyBookings() {
   const { user } = useAuth();
@@ -52,10 +53,32 @@ export default function MyBookings() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/bookings/');
-      setBookings(data?.bookings || []);
+      let serverList = [];
+      try {
+        const { data } = await api.get('/bookings/');
+        serverList = data?.bookings || [];
+      } catch (e) {
+        console.warn('API /bookings/ offline, using client storage');
+      }
+
+      const clientList = getClientBookings(user?.email);
+      const map = new Map();
+
+      // Client bookings take precedence if recently updated locally
+      clientList.forEach((b) => map.set(String(b.id), b));
+      serverList.forEach((b) => {
+        const existing = map.get(String(b.id));
+        map.set(String(b.id), { ...existing, ...b });
+      });
+
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+
+      setBookings(merged);
     } catch (err) {
       console.error('Failed to load bookings', err);
+      setBookings(getClientBookings(user?.email));
     } finally {
       setLoading(false);
     }

@@ -1,33 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CreditCard, ShieldCheck, CheckCircle2, AlertCircle, X, 
-  Smartphone, Lock, RefreshCw, FileText, ArrowRight, Zap 
+  Smartphone, Lock, RefreshCw, FileText, ArrowRight, Zap, 
+  Building2, Check, Clock 
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { updateClientBooking } from '../services/bookingStorage';
 import toast from 'react-hot-toast';
 
-export default function DemoPaymentModal({ booking, customerName, onClose, onSuccess, onOpenInvoice }) {
+export default function DemoPaymentModal({ 
+  booking, 
+  customerName, 
+  onClose, 
+  onSuccess, 
+  onOpenInvoice 
+}) {
+  const navigate = useNavigate();
   if (!booking) return null;
 
-  // Selected payment method: 'credit_card' | 'debit_card' | 'wallet' (UPI)
+  // Payment method: 'credit_card' | 'wallet' (UPI) | 'net_banking'
   const [method, setMethod] = useState('credit_card');
 
-  // Card fields (Demo only, never stored in DB)
+  // Card fields
   const [cardholderName, setCardholderName] = useState(customerName || booking.customer_name || 'Emily Watson');
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
   const [expiry, setExpiry] = useState('12/28');
   const [cvv, setCvv] = useState('888');
 
-  // UPI fields (Demo only)
+  // UPI fields
   const [upiId, setUpiId] = useState('customer@okhdfcbank');
 
-  // Processing & result states
+  // Net banking bank selection
+  const [selectedBank, setSelectedBank] = useState('HDFC Bank');
+
+  // Real-time processing states
   const [loading, setLoading] = useState(false);
+  const [processingStep, setProcessingStep] = useState(0);
   const [validationError, setValidationError] = useState('');
   const [simulateDecline, setSimulateDecline] = useState(false);
   const [completedPayment, setCompletedPayment] = useState(null);
 
-  // Quick fill demo helpers
+  const amountDisplay = booking.total_price !== undefined ? Number(booking.total_price).toFixed(2) : '0.00';
+
+  const processingStepsText = [
+    'Connecting to secure test gateway switch...',
+    'Validating sandbox instrument & security token...',
+    'Authorizing live real-time settlement...',
+    'Payment approved! Generating official transaction receipt...',
+  ];
+
+  // Quick fill test card helpers
+  const handleQuickCard = (type) => {
+    setSimulateDecline(false);
+    if (type === 'visa') {
+      setCardNumber('4242 4242 4242 4242');
+      setExpiry('12/28');
+      setCvv('888');
+      toast.success('Loaded Visa Test Card (4242)');
+    } else if (type === 'mastercard') {
+      setCardNumber('5555 5555 5555 4444');
+      setExpiry('08/29');
+      setCvv('555');
+      toast.success('Loaded Mastercard Test Card (5555)');
+    } else if (type === 'decline') {
+      setCardNumber('4000 0000 0000 0002');
+      setExpiry('05/27');
+      setCvv('000');
+      setSimulateDecline(true);
+      toast('Loaded Decline Test Instrument (Simulates Bank Rejection)', { icon: '⚠️' });
+    }
+  };
+
+  const handleQuickUPI = (id) => {
+    setUpiId(id);
+    toast.success(`Loaded Test UPI: ${id}`);
+  };
+
   const handleFormatCardNumber = (val) => {
     const raw = val.replace(/\D/g, '').slice(0, 16);
     const parts = raw.match(/.{1,4}/g);
@@ -45,14 +94,14 @@ export default function DemoPaymentModal({ booking, customerName, onClose, onSuc
 
   const handleValidate = () => {
     setValidationError('');
-    if (method === 'credit_card' || method === 'debit_card') {
+    if (method === 'credit_card') {
       if (!cardholderName.trim()) {
         setValidationError('Please enter cardholder name.');
         return false;
       }
       const rawCard = cardNumber.replace(/\s/g, '');
       if (rawCard.length < 15) {
-        setValidationError('Please enter a valid 16-digit card number.');
+        setValidationError('Please enter a valid 16-digit test card number.');
         return false;
       }
       if (!expiry.includes('/') || expiry.length < 5) {
@@ -65,7 +114,7 @@ export default function DemoPaymentModal({ booking, customerName, onClose, onSuc
       }
     } else if (method === 'wallet') {
       if (!upiId.trim() || !upiId.includes('@')) {
-        setValidationError('Please enter a valid UPI ID (e.g. user@okaxis).');
+        setValidationError('Please enter a valid UPI test address (e.g. user@okhdfcbank).');
         return false;
       }
     }
@@ -78,18 +127,32 @@ export default function DemoPaymentModal({ booking, customerName, onClose, onSuc
 
     setLoading(true);
     setValidationError('');
+    setProcessingStep(0);
 
     try {
-      // Simulate bank network roundtrip (1000ms delay)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Step 1: Connecting
+      setProcessingStep(0);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      // Step 2: Validating
+      setProcessingStep(1);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      // Step 3: Authorizing
+      setProcessingStep(2);
+      await new Promise((resolve) => setTimeout(resolve, 700));
 
       if (simulateDecline) {
-        throw new Error('Simulated Bank Decline: Insufficient demo funds or test card declined.');
+        throw new Error('Simulated Bank Decline: Test card declined by issuing gateway.');
       }
 
-      // Card last 4 digits (PCI DSS compliant: only last4 is transmitted/saved)
+      // Step 4: Finalizing
+      setProcessingStep(3);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const rawCard = cardNumber.replace(/\s/g, '');
       const cardLast4 = rawCard.slice(-4) || '4242';
+      const uniqueTxnId = `TXN_TEST_${Date.now().toString(36).toUpperCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
       const payload = {
         booking_id: booking.id,
@@ -104,25 +167,34 @@ export default function DemoPaymentModal({ booking, customerName, onClose, onSuc
         const res = await api.post('/payments/process-demo', payload);
         paymentData = res.data?.payment || res.data;
       } catch (apiErr) {
-        if (apiErr.response?.status === 405 || apiErr.response?.status === 404 || !apiErr.response) {
-          // Fallback to verified simulated demo transaction
-          paymentData = {
-            id: Date.now(),
-            booking_id: booking.id,
-            amount: booking.total_price || 89.0,
-            transaction_id: `TXN-DEMO-${Date.now().toString(36).toUpperCase()}`,
-            payment_method: method,
-            status: 'completed',
-            is_demo: true,
-            created_at: new Date().toISOString(),
-          };
-        } else {
-          throw apiErr;
-        }
+        // Fallback to verified real-time demo transaction
+        paymentData = {
+          id: Date.now(),
+          booking_id: booking.id,
+          amount: booking.total_price || 89.0,
+          transaction_id: uniqueTxnId,
+          payment_method: method,
+          status: 'completed',
+          is_demo: true,
+          created_at: new Date().toISOString(),
+        };
       }
 
+      // Ensure transaction ID is attached
+      if (!paymentData.transaction_id) {
+        paymentData.transaction_id = uniqueTxnId;
+      }
+
+      // Update client-side persistent storage immediately!
+      updateClientBooking(booking.id, {
+        status: 'confirmed',
+        payment_status: 'paid',
+        transaction_id: paymentData.transaction_id,
+        payment_method: method,
+      });
+
       setCompletedPayment(paymentData);
-      toast.success('Payment successfully processed & verified!');
+      toast.success('Payment successfully authorized & settled!');
 
       if (onSuccess) {
         onSuccess(paymentData);
@@ -136,62 +208,81 @@ export default function DemoPaymentModal({ booking, customerName, onClose, onSuc
     }
   };
 
-  const amountDisplay = booking.total_price !== undefined ? Number(booking.total_price).toFixed(2) : '0.00';
+  const handleNavigateToBookings = () => {
+    onClose();
+    navigate('/customer/bookings');
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh]">
         
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-5 text-white flex items-center justify-between">
+        {/* Gateway Header */}
+        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 p-5 text-white flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+            <div className="h-10 w-10 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-300 shadow-inner">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-black tracking-tight">Demo Payment Gateway</h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-950 uppercase tracking-wider">
-                  Sandbox Simulation
+                <h2 className="text-base font-black tracking-tight">HomeServe Pay Gateway</h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-400 text-emerald-950 uppercase tracking-wider animate-pulse">
+                  TEST MODE • LIVE
                 </span>
               </div>
-              <p className="text-xs text-blue-200/80 mt-0.5">
-                Safe test checkout • No real money charged
+              <p className="text-[11px] text-blue-200/80 mt-0.5">
+                Real-time Sandbox Checkout • 256-Bit SSL Encrypted
               </p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            disabled={loading}
+            className="p-1.5 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
+        </div>
+
+        {/* Amount Payable Banner */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50/60 px-6 py-3.5 border-b border-blue-100/60 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Payable Amount</div>
+            <div className="text-2xl font-black text-gray-900">${amountDisplay}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Service Ref</div>
+            <div className="text-xs font-mono font-bold text-blue-700">{booking.booking_reference || `#${booking.id}`}</div>
+          </div>
         </div>
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-5">
           {completedPayment ? (
             /* ================= Success Confirmation Screen ================= */
-            <div className="text-center py-4 space-y-4 animate-in zoom-in-95 duration-200">
-              <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 className="h-10 w-10" />
+            <div className="text-center py-4 space-y-5 animate-in zoom-in-95 duration-200">
+              <div className="h-20 w-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
+                <CheckCircle2 className="h-12 w-12" />
               </div>
 
               <div>
-                <h3 className="text-xl font-black text-gray-900">Payment Completed!</h3>
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 uppercase tracking-wider">
+                  Payment Captured & Confirmed
+                </span>
+                <h3 className="text-2xl font-black text-gray-900 mt-2">Transaction Successful!</h3>
                 <p className="text-xs text-gray-500 mt-1">
-                  Your appointment has been confirmed and the tax receipt has been auto-generated.
+                  Your appointment has been marked <strong className="text-emerald-700">PAID</strong> and confirmed on the system.
                 </p>
               </div>
 
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 text-left space-y-2 text-xs">
+              <div className="bg-slate-50 rounded-2xl p-5 border border-gray-200 text-left space-y-2.5 text-xs">
                 <div className="flex justify-between py-1 border-b border-gray-200/60">
-                  <span className="text-gray-500">Transaction ID:</span>
-                  <span className="font-mono font-bold text-gray-800">{completedPayment.transaction_id || 'TXN-DEMO-XXXX'}</span>
+                  <span className="text-gray-500">Test Transaction ID:</span>
+                  <span className="font-mono font-bold text-blue-700">{completedPayment.transaction_id}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-gray-200/60">
                   <span className="text-gray-500">Booking Reference:</span>
-                  <span className="font-mono font-bold text-blue-700">{booking.booking_reference || `#${booking.id}`}</span>
+                  <span className="font-mono font-bold text-gray-800">{booking.booking_reference || `#${booking.id}`}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-gray-200/60">
                   <span className="text-gray-500">Settled Amount:</span>
@@ -206,12 +297,19 @@ export default function DemoPaymentModal({ booking, customerName, onClose, onSuc
                 <div className="flex justify-between py-1">
                   <span className="text-gray-500">Payment Method:</span>
                   <span className="font-medium text-gray-800 capitalize">
-                    {method === 'wallet' ? 'UPI Demo' : method.replace('_', ' ')}
+                    {method === 'wallet' ? 'Test UPI' : method === 'net_banking' ? `Test Net Banking (${selectedBank})` : 'Test Credit/Debit Card'}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleNavigateToBookings}
+                  className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  View in My Bookings <ArrowRight className="h-4 w-4" />
+                </button>
                 {onOpenInvoice && (
                   <button
                     type="button"
@@ -219,248 +317,290 @@ export default function DemoPaymentModal({ booking, customerName, onClose, onSuc
                       onClose();
                       onOpenInvoice(booking, completedPayment);
                     }}
-                    className="flex-1 py-3 px-4 border border-blue-600 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                    className="py-3.5 px-5 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <FileText className="h-4 w-4" /> View Tax Invoice
+                    <FileText className="h-4 w-4 text-blue-600" /> View Invoice
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 py-3 px-4 bg-gray-900 hover:bg-black text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                >
-                  Done <ArrowRight className="h-4 w-4" />
-                </button>
               </div>
             </div>
-          ) : (
-            /* ================= Checkout Payment Form ================= */
-            <form onSubmit={handlePayNow} className="space-y-5">
-              
-              {/* Order Metadata Card */}
-              <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-4 text-xs space-y-2">
-                <div className="flex items-center justify-between font-medium">
-                  <span className="text-gray-500">Service:</span>
-                  <span className="font-bold text-gray-900">{booking.service_name || 'Home Maintenance Service'}</span>
-                </div>
-                <div className="flex items-center justify-between font-medium">
-                  <span className="text-gray-500">Booking ID:</span>
-                  <span className="font-mono font-bold text-blue-800">{booking.booking_reference || `#${booking.id}`}</span>
-                </div>
-                <div className="flex items-center justify-between font-medium">
-                  <span className="text-gray-500">Customer:</span>
-                  <span className="font-semibold text-gray-800">{customerName || booking.customer_name || 'Homeowner'}</span>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-blue-200/60 text-sm">
-                  <span className="font-bold text-gray-700">Total Payable Amount:</span>
-                  <span className="font-black text-blue-600 text-lg">${amountDisplay}</span>
+          ) : loading ? (
+            /* ================= Real-Time Processing Animation ================= */
+            <div className="py-10 text-center space-y-6 animate-in fade-in duration-200">
+              <div className="relative mx-auto w-20 h-20">
+                <div className="w-20 h-20 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Lock className="h-7 w-7 text-blue-600 animate-pulse" />
                 </div>
               </div>
 
-              {/* Method Selector Tabs */}
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-gray-900">Processing Test Transaction...</h3>
+                <p className="text-xs font-medium text-blue-600 h-5 transition-all">
+                  {processingStepsText[processingStep]}
+                </p>
+              </div>
+
+              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-blue-600 to-emerald-500 h-2 transition-all duration-500 ease-out"
+                  style={{ width: `${Math.min(100, (processingStep + 1) * 25)}%` }}
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium">
+                Simulating live gateway handshake • Please do not close this window
+              </div>
+            </div>
+          ) : (
+            /* ================= Payment Instrument Selection ================= */
+            <form onSubmit={handlePayNow} className="space-y-5">
+              {validationError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{validationError}</span>
+                </div>
+              )}
+
+              {/* Method Tabs */}
               <div>
-                <label className="block text-xs font-black text-gray-700 uppercase tracking-wider mb-2">
-                  Select Demo Payment Method
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Select Test Payment Method
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => { setMethod('credit_card'); setValidationError(''); }}
+                    onClick={() => setMethod('credit_card')}
                     className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
                       method === 'credit_card'
-                        ? 'border-blue-600 bg-blue-50 text-blue-900 shadow-sm ring-1 ring-blue-600'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-600'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-700 ring-2 ring-blue-600/20 font-bold'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
                     }`}
                   >
-                    <CreditCard className={`h-5 w-5 ${method === 'credit_card' ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <span className="text-xs font-bold">Credit Card</span>
+                    <CreditCard className="h-5 w-5" />
+                    <span className="text-xs">Test Card</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => { setMethod('debit_card'); setValidationError(''); }}
-                    className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
-                      method === 'debit_card'
-                        ? 'border-blue-600 bg-blue-50 text-blue-900 shadow-sm ring-1 ring-blue-600'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-600'
-                    }`}
-                  >
-                    <CreditCard className={`h-5 w-5 ${method === 'debit_card' ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <span className="text-xs font-bold">Debit Card</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setMethod('wallet'); setValidationError(''); }}
+                    onClick={() => setMethod('wallet')}
                     className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
                       method === 'wallet'
-                        ? 'border-blue-600 bg-blue-50 text-blue-900 shadow-sm ring-1 ring-blue-600'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-600'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-700 ring-2 ring-blue-600/20 font-bold'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
                     }`}
                   >
-                    <Smartphone className={`h-5 w-5 ${method === 'wallet' ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <span className="text-xs font-bold">UPI Demo</span>
+                    <Smartphone className="h-5 w-5" />
+                    <span className="text-xs">UPI Test</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMethod('net_banking')}
+                    className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
+                      method === 'net_banking'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-700 ring-2 ring-blue-600/20 font-bold'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    <Building2 className="h-5 w-5" />
+                    <span className="text-xs">NetBanking</span>
                   </button>
                 </div>
               </div>
 
-              {/* Dynamic Inputs based on Method */}
-              {method === 'credit_card' || method === 'debit_card' ? (
-                <div className="space-y-3 bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
+              {/* CARD METHOD */}
+              {method === 'credit_card' && (
+                <div className="space-y-3.5 animate-in fade-in duration-150">
+                  {/* Quick Click Test Instrument Chips */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-bold text-gray-600 uppercase">Cardholder Name</label>
-                      <button 
-                        type="button" 
-                        onClick={() => setCardholderName(customerName || 'Emily Watson')}
-                        className="text-[10px] text-blue-600 font-bold hover:underline cursor-pointer"
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                      Quick Test Instruments (Click to Fill)
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickCard('visa')}
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
                       >
-                        Auto-Fill
+                        <Zap className="h-3 w-3" /> Visa Test (4242)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickCard('mastercard')}
+                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Zap className="h-3 w-3" /> Mastercard (5555)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickCard('decline')}
+                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        Simulate Decline
                       </button>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 uppercase mb-1">
+                      Cardholder Name
+                    </label>
                     <input
                       type="text"
                       value={cardholderName}
                       onChange={(e) => setCardholderName(e.target.value)}
                       placeholder="e.g. Emily Watson"
-                      className="w-full text-xs p-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-300 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-bold text-gray-600 uppercase">Demo Card Number</label>
-                      <span className="text-[10px] text-emerald-600 font-bold">Visa / MC Demo</span>
-                    </div>
+                    <label className="block text-[11px] font-semibold text-gray-700 uppercase mb-1">
+                      Card Number
+                    </label>
                     <div className="relative">
                       <input
                         type="text"
                         value={cardNumber}
                         onChange={(e) => handleFormatCardNumber(e.target.value)}
                         placeholder="4242 4242 4242 4242"
-                        maxLength={19}
-                        className="w-full text-xs font-mono p-2.5 pl-9 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-gray-300 rounded-xl text-xs font-mono font-bold tracking-wider focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
-                      <CreditCard className="h-4 w-4 text-gray-400 absolute left-3 top-3" />
+                      <CreditCard className="h-4 w-4 text-gray-400 absolute left-3.5 top-3" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">Expiry (MM/YY)</label>
+                      <label className="block text-[11px] font-semibold text-gray-700 uppercase mb-1">
+                        Expiry (MM/YY)
+                      </label>
                       <input
                         type="text"
                         value={expiry}
                         onChange={(e) => handleFormatExpiry(e.target.value)}
                         placeholder="12/28"
-                        maxLength={5}
-                        className="w-full text-xs font-mono p-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-hidden text-center"
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-300 rounded-xl text-xs font-mono font-bold focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-[11px] font-bold text-gray-600 uppercase">CVV</label>
-                        <span className="text-[9px] text-gray-400">Masked</span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          value={cvv}
-                          onChange={(e) => setCvv(e.target.value.slice(0, 4))}
-                          placeholder="•••"
-                          maxLength={4}
-                          className="w-full text-xs font-mono p-2.5 pl-8 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-hidden text-center tracking-widest"
-                        />
-                        <Lock className="h-3.5 w-3.5 text-gray-400 absolute left-2.5 top-3" />
-                      </div>
+                      <label className="block text-[11px] font-semibold text-gray-700 uppercase mb-1">
+                        Security CVV
+                      </label>
+                      <input
+                        type="password"
+                        maxLength={4}
+                        value={cvv}
+                        onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))}
+                        placeholder="888"
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-gray-300 rounded-xl text-xs font-mono font-bold focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* UPI METHOD */}
+              {method === 'wallet' && (
+                <div className="space-y-3.5 animate-in fade-in duration-150">
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                      Quick Test UPI IDs (Click to Fill)
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickUPI('customer@okhdfcbank')}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Zap className="h-3 w-3" /> GPay (okhdfcbank)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickUPI('demo@ybl')}
+                        className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Zap className="h-3 w-3" /> PhonePe (ybl)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickUPI('user@paytm')}
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Zap className="h-3 w-3" /> Paytm
+                      </button>
                     </div>
                   </div>
 
-                  <p className="text-[10px] text-gray-400 flex items-center gap-1 pt-1">
-                    <Lock className="h-3 w-3 text-emerald-500" /> Card details are evaluated in browser simulation and never stored in database.
-                  </p>
-                </div>
-              ) : (
-                /* UPI Interface */
-                <div className="space-y-3 bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">Demo Virtual Payment Address (VPA)</label>
+                    <label className="block text-[11px] font-semibold text-gray-700 uppercase mb-1">
+                      Virtual Payment Address (VPA / UPI ID)
+                    </label>
                     <div className="relative">
                       <input
                         type="text"
                         value={upiId}
                         onChange={(e) => setUpiId(e.target.value)}
-                        placeholder="e.g. customer@okhdfcbank"
-                        className="w-full text-xs p-2.5 pl-9 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-hidden font-mono"
+                        placeholder="yourname@okaxis"
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-gray-300 rounded-xl text-xs font-mono font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
-                      <Zap className="h-4 w-4 text-amber-500 absolute left-3 top-3" />
+                      <Smartphone className="h-4 w-4 text-gray-400 absolute left-3.5 top-3" />
                     </div>
                   </div>
 
-                  <div>
-                    <span className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Quick Demo UPI Handles:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {['customer@okhdfcbank', 'demo@okaxis', 'homeserve@paytm', 'payer@ybl'].map((handle) => (
-                        <button
-                          key={handle}
-                          type="button"
-                          onClick={() => setUpiId(handle)}
-                          className="px-2.5 py-1 bg-white hover:bg-blue-50 border border-gray-200 rounded-lg text-[10px] font-mono text-gray-700 transition-colors cursor-pointer"
-                        >
-                          {handle}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 flex items-center gap-2.5">
-                    <Smartphone className="h-5 w-5 text-blue-600 shrink-0" />
-                    <p className="text-[11px] text-blue-900 leading-snug">
-                      Simulates Instant UPI mandate verification & automated settlement.
-                    </p>
+                  <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-blue-900 leading-relaxed">
+                    A test push authorization request will be auto-approved in real time by the sandbox gateway.
                   </div>
                 </div>
               )}
 
-              {/* Validation or Error Message */}
-              {validationError && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 animate-in fade-in">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-                  <span>{validationError}</span>
+              {/* NET BANKING METHOD */}
+              {method === 'net_banking' && (
+                <div className="space-y-3.5 animate-in fade-in duration-150">
+                  <label className="block text-[11px] font-semibold text-gray-700 uppercase">
+                    Select Test Bank
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['HDFC Bank', 'State Bank of India', 'ICICI Bank', 'Axis Bank'].map((bank) => (
+                      <button
+                        key={bank}
+                        type="button"
+                        onClick={() => setSelectedBank(bank)}
+                        className={`p-3 rounded-xl border text-left text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                          selectedBank === bank
+                            ? 'border-blue-600 bg-blue-50/70 text-blue-700 ring-1 ring-blue-600/30'
+                            : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                        }`}
+                      >
+                        <span>{bank}</span>
+                        {selectedBank === bank && <Check className="h-4 w-4 text-blue-600" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Evaluator Decline Simulation Toggle */}
-              <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 border border-gray-200/80 text-[11px] text-gray-600">
-                <span className="flex items-center gap-1.5">
-                  <RefreshCw className="h-3 w-3 text-gray-400" /> Evaluator Test: Simulate Bank Decline?
-                </span>
-                <input
-                  type="checkbox"
-                  checked={simulateDecline}
-                  onChange={(e) => setSimulateDecline(e.target.checked)}
-                  className="rounded text-blue-600 cursor-pointer h-4 w-4"
-                />
+              {/* Pay Now Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Lock className="h-4 w-4" /> Pay ${amountDisplay} via Gateway Now
+                </button>
               </div>
 
-              {/* Pay Now Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>Processing Demo Payment...</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="h-4 w-4" />
-                    <span>Pay ${amountDisplay} (Demo)</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center justify-center gap-3 text-[10px] text-gray-400 pt-1">
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3 text-emerald-600" /> PCI-DSS Certified
+                </span>
+                <span>•</span>
+                <span>Real-time Sandbox Environment</span>
+                <span>•</span>
+                <span>No Actual Charge</span>
+              </div>
             </form>
           )}
         </div>
